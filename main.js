@@ -275,29 +275,28 @@ function createShareButton() {
     timerControls.parentNode.insertBefore(shareContainer, timerControls.nextSibling);
 }
 
-function shareRecipe() {
+function buildUrlWithValues() {
     const recipeData = {
-        water: waterInput.value,
-        coffee: coffeeInput.value,
-        ratio: ratioSelect.value,
-        steps: []
-    };
-    
-    // Gather all recipe steps
-    const steps = document.querySelectorAll('.recipe-step');
-    steps.forEach(step => {
-        recipeData.steps.push({
+        calculator: {
+            water: waterInput.value,
+            coffee: coffeeInput.value,
+            ratio: ratioSelect.value
+        },
+        steps: Array.from(document.querySelectorAll('.recipe-step')).map(step => ({
             water: step.querySelector('input[type="number"]').value,
             description: step.querySelector('input[type="text"]').value,
             minutes: step.querySelector('.minutes').value,
             seconds: step.querySelector('.seconds').value
-        });
-    });
-    
-    // Create shareable URL
+        }))
+    };
+
     const jsonString = JSON.stringify(recipeData);
-    const encodedData = encodeURIComponent(jsonString);
-    const shareableUrl = `${window.location.origin}${window.location.pathname}?data=${encodedData}`;
+    const compressed = LZString.compressToEncodedURIComponent(jsonString);
+    return window.location.origin + window.location.pathname + '?data=' + compressed;
+}
+
+function shareRecipe() {
+    const shareableUrl = buildUrlWithValues();
     
     // Copy to clipboard
     navigator.clipboard.writeText(shareableUrl)
@@ -307,29 +306,38 @@ function shareRecipe() {
 
 function loadSharedRecipe() {
     const urlParams = new URLSearchParams(window.location.search);
-    const sharedData = urlParams.get('data');
+    const compressedData = urlParams.get('data');
     
-    if (!sharedData) return;
+    if (!compressedData) return;
     
     try {
-        const recipeData = JSON.parse(decodeURIComponent(sharedData));
+        const jsonString = LZString.decompressFromEncodedURIComponent(compressedData);
+        const recipeData = JSON.parse(jsonString);
         
         // Set main calculator values
-        if (recipeData.water) waterInput.value = recipeData.water;
-        if (recipeData.coffee) coffeeInput.value = recipeData.coffee;
-        if (recipeData.ratio) ratioSelect.value = recipeData.ratio;
+        if (recipeData.calculator) {
+            if (recipeData.calculator.water) waterInput.value = recipeData.calculator.water;
+            if (recipeData.calculator.coffee) coffeeInput.value = recipeData.calculator.coffee;
+            if (recipeData.calculator.ratio) ratioSelect.value = recipeData.calculator.ratio;
+        }
         
         // Clear existing steps
         document.getElementById('recipe-steps').innerHTML = '';
         
         // Add shared steps
-        recipeData.steps.forEach(step => {
-            addRecipeStep(step);
-        });
+        if (recipeData.steps && Array.isArray(recipeData.steps)) {
+            recipeData.steps.forEach(step => {
+                addRecipeStep(step);
+            });
+        }
     } catch (error) {
         console.error('Error loading shared recipe:', error);
+        alert('Invalid recipe data in URL');
     }
 }
+
+
+
 
 // Modify your existing addRecipeStep function to accept initial values
 function addRecipeStep(initialValues = null) {
@@ -406,5 +414,7 @@ function addRecipeStep(initialValues = null) {
     stepsContainer.appendChild(stepElement);
 }
 
-createShareButton();
-loadSharedRecipe(); // This will load shared recipe if URL has data parameter
+window.addEventListener('DOMContentLoaded', () => {
+    createShareButton();
+    loadSharedRecipe();
+});
