@@ -43,10 +43,9 @@ body {
 
 /* Theme Toggle */
 .theme-toggle {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 1000;
+  position: relative;
+  top: auto;
+  right: auto;
 }
 
 .theme-switch {
@@ -144,24 +143,85 @@ textarea:focus {
   background-color: var(--button-secondary);
 }
 
+/* Reset Button Styles */
 .reset-button {
-    background: none;
-    border: none;
-    padding: 8px;
-    color: var(--text-primary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: opacity 0.2s;
+  background: none;
+  border: none;
+  padding: 8px;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s;
 }
 
 .reset-button:hover {
-    opacity: 0.7;
+  opacity: 0.7;
 }
 
 .reset-button ion-icon {
-    font-size: 24px;
+  font-size: 24px;
+}
+
+/* Recipe Step Layout */
+.recipe-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: var(--background-secondary);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: var(--card-shadow);
+}
+
+/* Water amount (Column 1) */
+.recipe-step input[type="number"]:not(.time-input) {
+  width: 80px;
+  flex-shrink: 0;
+}
+
+/* Description (Column 2) */
+.recipe-step input[type="text"] {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Time container (Column 3) */
+.recipe-step .time-container {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 100px;
+  flex-shrink: 0;
+}
+
+/* Time inputs styling */
+.recipe-step .time-input {
+  width: 40px;
+  padding: 8px;
+  text-align: center;
+}
+
+/* Remove button */
+.recipe-step .remove-step {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.recipe-step .remove-step:hover {
+  opacity: 1;
 }
 
 /* Section Styles */
@@ -196,44 +256,7 @@ label {
   margin: 20px 0;
 }
 
-/* iPhone 12 Mini Optimization */
-@media screen and (max-width: 375px) {
-  body {
-    padding: 16px;
-  }
-
-  .metadata-section {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .recipe-step {
-    padding: 12px;
-  }
-
-  input,
-  select,
-  textarea {
-    font-size: 16px;
-    padding: 10px 14px;
-  }
-
-  .button {
-    width: 100%;
-    padding: 14px 20px;
-  }
-
-  .theme-toggle {
-    top: 16px;
-    right: 16px;
-  }
-
-  .current-timer {
-    font-size: 28px;
-  }
-}
-
-/* Add these styles for the header */
+/* Header Styles */
 .header-container {
   position: sticky;
   top: 0;
@@ -243,7 +266,7 @@ label {
   padding: 16px 20px;
   background-color: var(--background-primary);
   z-index: 1000;
-  margin: -20px -20px 20px -20px; /* Compensate for body padding */
+  margin: -20px -20px 20px -20px;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border-color);
@@ -258,70 +281,99 @@ label {
   color: var(--text-primary);
 }
 
-/* Update existing reset button styles */
-.reset-button {
-  position: relative; /* Change from fixed to relative */
-  top: auto;
-  left: auto;
-  width: 32px;
-  height: 32px;
-  font-size: 20px;
-  margin: 0;
+/* Icon Button Styles */
+.icon-button {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  transition: opacity 0.2s;
 }
 
-/* Update existing theme toggle styles */
-.theme-toggle {
-  position: relative; /* Change from fixed to relative */
-  top: auto;
-  right: auto;
+.icon-button:hover {
+  opacity: 0.7;
 }
 
-/* iPhone 12 Mini optimization */
-@media screen and (max-width: 375px) {
-  .header-container {
-    padding: 12px 16px;
-    margin: -16px -16px 16px -16px; /* Match body padding */
-  }
-
-  .app-title {
-    font-size: 18px;
-  }
-
-  .reset-button {
-    width: 28px;
-    height: 28px;
-    font-size: 18px;
-  }
+.icon-button ion-icon {
+  font-size: 24px;
 }
 
+/* Add Step Button */
+#add-step {
+  margin: 16px auto;
+  display: flex;
+  justify-content: center;
+}
+
+/* Share Container */
 .share-container {
   display: flex;
   justify-content: center;
   margin: 20px 0;
 }
 
-.icon-button {
-    background: none;
-    border: none;
-    padding: 8px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-primary);
-    transition: opacity 0.2s;
+/* Timer Controls */
+.timer-controls {
+  margin: 20px 0;
 }
 
-.icon-button:hover {
-    opacity: 0.7;
+.timer-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 16px;
 }
 
-.icon-button ion-icon {
-    font-size: 24px;
-}
+/* Mobile Optimization */
+@media screen and (max-width: 375px) {
+  body {
+    padding: 16px;
+  }
 
-#add-step {
-    margin: 16px auto;
-    display: flex;
-    justify-content: center;
+  .header-container {
+    padding: 12px 16px;
+    margin: -16px -16px 16px -16px;
+  }
+
+  .app-title {
+    font-size: 18px;
+  }
+
+  .recipe-step {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .recipe-step input[type="text"] {
+    flex-basis: 100%;
+    order: -1;
+  }
+
+  .recipe-step .time-container {
+    width: auto;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+    padding: 10px 14px;
+  }
+
+  .current-timer {
+    font-size: 28px;
+  }
+
+  .timer-buttons {
+    flex-direction: column;
+  }
+
+  .button {
+    width: 100%;
+    padding: 14px 20px;
+  }
 }
