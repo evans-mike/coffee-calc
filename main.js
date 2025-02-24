@@ -418,3 +418,16 @@ window.addEventListener('DOMContentLoaded', () => {
     createShareButton();
     loadSharedRecipe();
 });
+
+// Update the reset function
+function resetAllInputs() {
+    // Clear URL parameters by refreshing to base URL
+    window.location.href = window.location.pathname;
+}
+
+// Add event listener for reset button
+document.getElementById('reset-button').addEventListener('click', () => {
+    if (confirm('Are you sure you want to reset all inputs?')) {
+        resetAllInputs();
+    }
+});

@@ -183,3 +183,35 @@ input[type="number"] {
         height: 44px;
     }
 }
+
+/* Add these styles for the reset button */
+.reset-button {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background-color: #ff4444;
+    color: white;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.reset-button:hover {
+    background-color: #cc0000;
+}
+
+/* Adjust for mobile */
+@media screen and (max-width: 375px) {
+    .reset-button {
+        top: 10px;
+        left: 10px;
+    }
+}
