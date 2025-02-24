@@ -361,67 +361,72 @@ function generateRecipeMarkdown() {
 }
 
 function shareRecipe() {
-  const hasWater = waterInput.value.trim() !== '';
-  const hasCoffee = coffeeInput.value.trim() !== '';
-  
+  const hasWater = waterInput.value.trim() !== "";
+  const hasCoffee = coffeeInput.value.trim() !== "";
+
   // If no coffee or water inputs, just share the base URL
   if (!hasWater && !hasCoffee) {
-      const baseUrl = window.location.origin + window.location.pathname;
-      
-      // Check if Web Share API is available AND we're in a secure context
-      if (navigator.share && window.isSecureContext) {
-          console.log("Attempting to use Web Share API with base URL...");
-          
-          const shareData = {
-              title: "Coffee Calc",
-              text: "Check out this coffee ratio calculator!",
-              url: baseUrl
-          };
-          
-          navigator.share(shareData)
-              .then(() => console.log("Successfully shared base URL"))
-              .catch((error) => {
-                  console.log("Share failed:", error);
-                  fallbackToClipboard(baseUrl, "Check out this coffee ratio calculator!");
-              });
-      } else {
-          fallbackToClipboard(baseUrl, "Check out this coffee ratio calculator!");
-      }
-      return;
+    const baseUrl = window.location.origin + window.location.pathname;
+
+    // Check if Web Share API is available AND we're in a secure context
+    if (navigator.share && window.isSecureContext) {
+      console.log("Attempting to use Web Share API with base URL...");
+
+      const shareData = {
+        title: "Coffee Calc",
+        text: "Check out this coffee ratio calculator!",
+        url: baseUrl,
+      };
+
+      navigator
+        .share(shareData)
+        .then(() => console.log("Successfully shared base URL"))
+        .catch((error) => {
+          console.log("Share failed:", error);
+          fallbackToClipboard(
+            baseUrl,
+            "Check out this coffee ratio calculator!"
+          );
+        });
+    } else {
+      fallbackToClipboard(baseUrl, "Check out this coffee ratio calculator!");
+    }
+    return;
   }
-  
+
   // Continue with normal share functionality if we have inputs
   const shareableUrl = buildUrlWithValues();
   const recipeText = generateRecipeMarkdown();
-  
+
   console.log("Web Share API available:", !!navigator.share);
   console.log("Running on secure context:", window.isSecureContext);
-  
+
   if (navigator.share && window.isSecureContext) {
-      console.log("Attempting to use Web Share API...");
-      
-      const shareData = {
-          title: "Coffee Recipe",
-          text: recipeText,
-          url: shareableUrl
-      };
-      
-      console.log("Share data:", shareData);
-      
-      navigator.share(shareData)
-          .then(() => {
-              console.log("Successfully shared");
-          })
-          .catch((error) => {
-              console.log("Share failed:", error);
-              fallbackToClipboard(shareableUrl, recipeText);
-          });
+    console.log("Attempting to use Web Share API...");
+
+    const shareData = {
+      title: "Coffee Recipe",
+      text: recipeText,
+      url: shareableUrl,
+    };
+
+    console.log("Share data:", shareData);
+
+    navigator
+      .share(shareData)
+      .then(() => {
+        console.log("Successfully shared");
+      })
+      .catch((error) => {
+        console.log("Share failed:", error);
+        fallbackToClipboard(shareableUrl, recipeText);
+      });
   } else {
-      console.log("Web Share API not available:");
-      console.log("- navigator.share exists:", !!navigator.share);
-      console.log("- secure context:", window.isSecureContext);
-      
-      fallbackToClipboard(shareableUrl, recipeText);
+    console.log("Web Share API not available:");
+    console.log("- navigator.share exists:", !!navigator.share);
+    console.log("- secure context:", window.isSecureContext);
+
+    fallbackToClipboard(shareableUrl, recipeText);
   }
 }
 
