@@ -374,30 +374,54 @@ function shareRecipe() {
     const shareableUrl = buildUrlWithValues();
     const recipeText = generateRecipeMarkdown();
     
-    // If Web Share API is supported, use it
-    if (navigator.share) {
-        navigator.share({
+    // Add debug logging
+    console.log('Web Share API available:', !!navigator.share);
+    console.log('Running on secure context:', window.isSecureContext);
+    
+    // Check if Web Share API is available AND we're in a secure context
+    if (navigator.share && window.isSecureContext) {
+        console.log('Attempting to use Web Share API...');
+        
+        // Create share data object
+        const shareData = {
             title: 'Coffee Recipe',
             text: recipeText,
             url: shareableUrl
-        }).catch(err => {
-            console.log('Sharing canceled or failed', err);
-            // Fallback to clipboard
-            fallbackToClipboard(shareableUrl, recipeText);
-        });
+        };
+        
+        // Log share data for debugging
+        console.log('Share data:', shareData);
+        
+        navigator.share(shareData)
+            .then(() => {
+                console.log('Successfully shared');
+            })
+            .catch((error) => {
+                console.log('Share failed:', error);
+                fallbackToClipboard(shareableUrl, recipeText);
+            });
     } else {
-        // Fallback to clipboard if Web Share API is not supported
+        // Log why Web Share API isn't available
+        console.log('Web Share API not available:');
+        console.log('- navigator.share exists:', !!navigator.share);
+        console.log('- secure context:', window.isSecureContext);
+        
         fallbackToClipboard(shareableUrl, recipeText);
     }
 }
 
 function fallbackToClipboard(url, markdown) {
-    // Copy both the markdown and URL to clipboard
     const textToCopy = `${markdown}\n\nRecipe URL: ${url}`;
     
     navigator.clipboard.writeText(textToCopy)
-        .then(() => alert('Recipe copied to clipboard!'))
-        .catch(err => alert('Error copying recipe: ' + err));
+        .then(() => {
+            console.log('Successfully copied to clipboard');
+            alert('Recipe copied to clipboard!');
+        })
+        .catch(err => {
+            console.error('Clipboard error:', err);
+            alert('Error copying recipe: ' + err);
+        });
 }
 
 function buildUrlWithValues() {
@@ -425,14 +449,6 @@ function buildUrlWithValues() {
     return window.location.origin + window.location.pathname + '?data=' + compressed;
 }
 
-function shareRecipe() {
-    const shareableUrl = buildUrlWithValues();
-    
-    // Copy to clipboard
-    navigator.clipboard.writeText(shareableUrl)
-        .then(() => alert('Share link copied to clipboard!'))
-        .catch(err => console.error('Failed to copy:', err));
-}
 
 function loadSharedRecipe() {
     const urlParams = new URLSearchParams(window.location.search);

@@ -277,3 +277,21 @@ label {
     font-size: 18px;
   }
 }
+
+.share-container {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.share-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background-color: var(--button-primary);
+}
+
+.share-button ion-icon {
+    font-size: 20px;
+}
