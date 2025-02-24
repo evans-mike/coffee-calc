@@ -282,6 +282,11 @@ function buildUrlWithValues() {
             coffee: coffeeInput.value,
             ratio: ratioSelect.value
         },
+        metadata: {
+            grindSize: document.getElementById('grind-size').value,
+            waterTemp: document.getElementById('water-temp').value,
+            notes: document.getElementById('additional-notes').value
+        },
         steps: Array.from(document.querySelectorAll('.recipe-step')).map(step => ({
             water: step.querySelector('input[type="number"]').value,
             description: step.querySelector('input[type="text"]').value,
@@ -319,6 +324,11 @@ function loadSharedRecipe() {
             if (recipeData.calculator.water) waterInput.value = recipeData.calculator.water;
             if (recipeData.calculator.coffee) coffeeInput.value = recipeData.calculator.coffee;
             if (recipeData.calculator.ratio) ratioSelect.value = recipeData.calculator.ratio;
+        }
+        if (recipeData.metadata) {
+            if (recipeData.metadata.grindSize) document.getElementById('grind-size').value = recipeData.metadata.grindSize;
+            if (recipeData.metadata.waterTemp) document.getElementById('water-temp').value = recipeData.metadata.waterTemp;
+            if (recipeData.metadata.notes) document.getElementById('additional-notes').value = recipeData.metadata.notes;
         }
         
         // Clear existing steps
