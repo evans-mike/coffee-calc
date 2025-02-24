@@ -169,6 +169,9 @@ function addRecipeStep() {
 let timerRunning = false;
 let currentStepIndex = 0;
 let timerInterval;
+let isPaused = false;
+let currentTimeLeft = 0;
+let currentStepDescription = '';
 
 function getTimeInSeconds(minutes, seconds) {
   return parseInt(minutes || "0") * 60 + parseInt(seconds || "0");
@@ -184,78 +187,132 @@ function formatTime(totalSeconds) {
 }
 
 function startTimers() {
-  const startButton = document.getElementById("start-timer");
-  const currentTimerDisplay = document.getElementById("current-timer");
-  const steps = document.querySelectorAll(".recipe-step");
-
-  if (steps.length === 0) {
-    alert("Add at least one step before starting the timer");
-    return;
-  }
-
-  if (timerRunning) {
-    return;
-  }
-
-  timerRunning = true;
-  currentStepIndex = 0;
-  startButton.disabled = true;
-
-  function startNextTimer() {
-    if (currentStepIndex >= steps.length) {
-      // All timers completed
-      timerRunning = false;
-      startButton.disabled = false;
-      currentTimerDisplay.textContent = "Complete!";
-      return;
+    const startButton = document.getElementById('start-timer');
+    const pauseButton = document.getElementById('pause-timer');
+    const resetButton = document.getElementById('reset-timer');
+    const currentTimerDisplay = document.getElementById('current-timer');
+    const steps = document.querySelectorAll('.recipe-step');
+    
+    if (steps.length === 0) {
+        alert('Add at least one step before starting the timer');
+        return;
     }
-
-    // Reset previous step styling if exists
-    if (currentStepIndex > 0) {
-      steps[currentStepIndex - 1].classList.remove("active");
-      steps[currentStepIndex - 1].classList.add("completed");
+    
+    if (timerRunning && !isPaused) {
+        return;
     }
-
-    const currentStep = steps[currentStepIndex];
-    currentStep.classList.add("active");
-
-    const minutesInput = currentStep.querySelector(".minutes");
-    const secondsInput = currentStep.querySelector(".seconds");
-    const stepDescription =
-      currentStep.querySelector('input[type="text"]').value;
-
-    let timeLeft = getTimeInSeconds(minutesInput.value, secondsInput.value);
-
-    if (timeLeft <= 0) {
-      currentStepIndex++;
-      startNextTimer();
-      return;
+    
+    if (isPaused) {
+        // Resume from paused state
+        isPaused = false;
+        pauseButton.textContent = 'Pause Timer';
+        startButton.disabled = true;
+    } else {
+        // Start fresh
+        timerRunning = true;
+        currentStepIndex = 0;
+        startButton.disabled = true;
+        pauseButton.disabled = false;
+        resetButton.disabled = false;
     }
-
-    currentTimerDisplay.textContent = `${stepDescription}: ${formatTime(
-      timeLeft
-    )}`;
-
-    clearInterval(timerInterval);
-    timerInterval = setInterval(() => {
-      timeLeft--;
-      currentTimerDisplay.textContent = `${stepDescription}: ${formatTime(
-        timeLeft
-      )}`;
-
-      if (timeLeft <= 0) {
+    
+    function startNextTimer() {
+        if (currentStepIndex >= steps.length) {
+            // All timers completed
+            timerRunning = false;
+            isPaused = false;
+            startButton.disabled = false;
+            pauseButton.disabled = true;
+            resetButton.disabled = true;
+            currentTimerDisplay.textContent = 'Complete!';
+            return;
+        }
+        
+        // Reset previous step styling if exists
+        if (currentStepIndex > 0) {
+            steps[currentStepIndex - 1].classList.remove('active');
+            steps[currentStepIndex - 1].classList.add('completed');
+        }
+        
+        const currentStep = steps[currentStepIndex];
+        currentStep.classList.add('active');
+        
+        const minutesInput = currentStep.querySelector('.minutes');
+        const secondsInput = currentStep.querySelector('.seconds');
+        const stepDescription = currentStep.querySelector('input[type="text"]').value;
+        
+        currentTimeLeft = getTimeInSeconds(
+            minutesInput.value || '0',
+            secondsInput.value || '0'
+        );
+        currentStepDescription = stepDescription;
+        
+        if (currentTimeLeft <= 0) {
+            currentStepIndex++;
+            startNextTimer();
+            return;
+        }
+        
+        currentTimerDisplay.textContent = `${stepDescription}: ${formatTime(currentTimeLeft)}`;
+        
         clearInterval(timerInterval);
-        currentStepIndex++;
-        startNextTimer();
-      }
-    }, 1000);
-  }
+        timerInterval = setInterval(() => {
+            if (!isPaused) {
+                currentTimeLeft--;
+                currentTimerDisplay.textContent = `${stepDescription}: ${formatTime(currentTimeLeft)}`;
+                
+                if (currentTimeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    currentStepIndex++;
+                    startNextTimer();
+                }
+            }
+        }, 1000);
+    }
+    
+    startNextTimer();
+}
 
-  startNextTimer();
+// Add these new functions
+function pauseTimer() {
+    const pauseButton = document.getElementById('pause-timer');
+    const startButton = document.getElementById('start-timer');
+    
+    if (timerRunning) {
+        isPaused = !isPaused;
+        pauseButton.textContent = isPaused ? 'Resume Timer' : 'Pause Timer';
+        startButton.disabled = !isPaused;
+    }
+}
+
+function resetTimer() {
+    clearInterval(timerInterval);
+    timerRunning = false;
+    isPaused = false;
+    currentStepIndex = 0;
+    currentTimeLeft = 0;
+    
+    const startButton = document.getElementById('start-timer');
+    const pauseButton = document.getElementById('pause-timer');
+    const resetButton = document.getElementById('reset-timer');
+    const currentTimerDisplay = document.getElementById('current-timer');
+    const steps = document.querySelectorAll('.recipe-step');
+    
+    startButton.disabled = false;
+    pauseButton.disabled = true;
+    resetButton.disabled = true;
+    currentTimerDisplay.textContent = '';
+    
+    // Clear step styling
+    steps.forEach(step => {
+        step.classList.remove('active', 'completed');
+    });
 }
 
 // Add event listener for start button
 document.getElementById("start-timer").addEventListener("click", startTimers);
+document.getElementById('pause-timer').addEventListener('click', pauseTimer);
+document.getElementById('reset-timer').addEventListener('click', resetTimer);
 
 // Add these functions after your existing code
 

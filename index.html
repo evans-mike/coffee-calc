@@ -85,8 +85,12 @@
 
     <!-- Add this after the recipe-steps div and before the add-step button -->
     <div class="timer-controls">
-      <button id="start-timer" class="button timer-button">Start Timer</button>
-      <div id="current-timer" class="current-timer"></div>
+        <div class="timer-buttons">
+            <button id="start-timer" class="button timer-button">Start Timer</button>
+            <button id="pause-timer" class="button timer-button" disabled>Pause Timer</button>
+            <button id="reset-timer" class="button timer-button" disabled>Reset Timer</button>
+        </div>
+        <div id="current-timer" class="current-timer"></div>
     </div>
 
     <script src="main.js"></script>
