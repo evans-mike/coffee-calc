@@ -6,83 +6,99 @@
     <title>Coffee Ratio Calculator</title>
     <link rel="stylesheet" href="styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.4.4/libs/lz-string.min.js"></script>
-    <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
-    <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
+    <script
+      type="module"
+      src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"
+    ></script>
+    <script
+      nomodule
+      src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"
+    ></script>
   </head>
   <body>
     <div class="header-container">
-        <button id="reset-button" class="reset-button" title="Reset All Inputs"><ion-icon name="refresh-outline"></ion-icon></button>
-        <h1 class="app-title">Coffee Calc</h1>
-        <div class="theme-toggle">
-            <label class="theme-switch">
-                <input type="checkbox" id="theme-toggle">
-                <span class="slider"></span>
-            </label>
-        </div>
+      <button id="reset-button" class="reset-button" title="Reset All Inputs">
+        <ion-icon name="refresh-outline"></ion-icon>
+      </button>
+      <h1 class="app-title">Coffee Calc</h1>
+      <div class="theme-toggle">
+        <label class="theme-switch">
+          <input type="checkbox" id="theme-toggle" />
+          <span class="slider"></span>
+        </label>
+      </div>
     </div>
-    <div class="calculator-section">
-      <div class="form-group">
-        <label for="water">Water (grams):</label>
-        <input
-          type="number"
-          id="water"
-          inputmode="numeric"
-          pattern="[0-9]*"
-          min="0"
-          step="1"
-        />
-      </div>
-      <div class="form-group">
-        <label for="coffee">Coffee (grams):</label>
-        <input
-          type="number"
-          id="coffee"
-          inputmode="numeric"
-          pattern="[0-9]*"
-          min="0"
-          step="1"
-        />
-      </div>
-      <div class="form-group">
-        <label for="ratio">Ratio (water:coffee):</label>
-        <select id="ratio">
+    <!-- Replace the calculator-section and the following form-groups with: -->
+    <div class="recipe-details-container">
+      <div class="recipe-details-column">
+        <!-- Core Calculator -->
+        <div class="input-group">
+          <label for="water">Water (grams)</label>
+          <input
+            type="number"
+            id="water"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            min="0"
+            step="1"
+          />
+        </div>
+        <div class="input-group">
+          <label for="coffee">Coffee (grams)</label>
+          <input
+            type="number"
+            id="coffee"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            min="0"
+            step="1"
+          />
+        </div>
+        <div class="input-group">
+          <label for="ratio">Ratio (water:coffee)</label>
+          <select id="ratio">
             <option value="">Select ratio</option>
           </select>
+        </div>
       </div>
-    </div>
-    <!-- Update just the grind size input within the metadata-section -->
-    <div class="form-group">
-        <label for="grind-size">Grind Size (µm)</label>
-        <input type="number" 
-            id="grind-size" 
-            min="0" 
-            step="1" 
+
+      <div class="recipe-details-column">
+        <!-- Brewing Parameters -->
+        <div class="input-group">
+          <label for="grind-size">Grind Size (µm)</label>
+          <input
+            type="number"
+            id="grind-size"
+            min="0"
+            step="1"
             value="650"
             placeholder="Enter grind size"
-            class="metadata-input">
+            class="metadata-input"
+          />
+        </div>
+        <div class="input-group">
+          <label for="water-temp">Water Temperature (°F)</label>
+          <input
+            type="number"
+            id="water-temp"
+            min="0"
+            max="212"
+            step="1"
+            value="200"
+            class="metadata-input"
+          />
+        </div>
+        <div class="input-group">
+          <label for="additional-notes">Additional Notes</label>
+          <textarea
+            id="additional-notes"
+            rows="4"
+            placeholder="Enter any additional notes about your recipe here..."
+            class="notes-input"
+          ></textarea>
+        </div>
+      </div>
     </div>
-    <div class="form-group">
-        <label for="water-temp">Water Temperature (°F)</label>
-        <input type="number" 
-               id="water-temp" 
-               min="0" 
-               max="212" 
-               step="1" 
-               value="200"
-               class="metadata-input">
-    </div>
-</div>
-
-
-<div class="notes-section">
-    <div class="form-group">
-        <label for="additional-notes">Additional Notes</label>
-        <textarea id="additional-notes" 
-                  rows="4" 
-                  placeholder="Enter any additional notes about your recipe here..."
-                  class="notes-input"></textarea>
-    </div>
-</div>
 
     <div class="recipe-section">
       <h2>Recipe Steps</h2>
@@ -91,22 +107,28 @@
       </div>
       <button id="add-step" class="icon-button">
         <ion-icon name="add-circle-outline"></ion-icon>
-    </button>
+      </button>
     </div>
 
     <!-- Add this after the recipe-steps div and before the add-step button -->
     <div class="timer-controls">
-        <div class="timer-buttons">
-            <button id="start-timer" class="button timer-button">Start Timer</button>
-            <button id="pause-timer" class="button timer-button" disabled>Pause Timer</button>
-            <button id="reset-timer" class="button timer-button" disabled>Reset Timer</button>
-        </div>
-        <div id="current-timer" class="current-timer"></div>
+      <div class="timer-buttons">
+        <button id="start-timer" class="button timer-button">
+          Start Timer
+        </button>
+        <button id="pause-timer" class="button timer-button" disabled>
+          Pause Timer
+        </button>
+        <button id="reset-timer" class="button timer-button" disabled>
+          Reset Timer
+        </button>
+      </div>
+      <div id="current-timer" class="current-timer"></div>
     </div>
     <div class="share-container">
-        <button id="shareBtn" class="icon-button">
-            <ion-icon name="share-outline"></ion-icon>
-        </button>
+      <button id="shareBtn" class="icon-button">
+        <ion-icon name="share-outline"></ion-icon>
+      </button>
     </div>
 
     <script src="main.js"></script>
