@@ -256,3 +256,155 @@ function startTimers() {
 
 // Add event listener for start button
 document.getElementById("start-timer").addEventListener("click", startTimers);
+
+// Add these functions after your existing code
+
+function createShareButton() {
+    const shareContainer = document.createElement('div');
+    shareContainer.className = 'share-container';
+    
+    const shareButton = document.createElement('button');
+    shareButton.textContent = 'Share Recipe';
+    shareButton.className = 'button share-button';
+    shareButton.addEventListener('click', shareRecipe);
+    
+    shareContainer.appendChild(shareButton);
+    
+    // Add it after the timer controls
+    const timerControls = document.querySelector('.timer-controls');
+    timerControls.parentNode.insertBefore(shareContainer, timerControls.nextSibling);
+}
+
+function shareRecipe() {
+    const recipeData = {
+        water: waterInput.value,
+        coffee: coffeeInput.value,
+        ratio: ratioSelect.value,
+        steps: []
+    };
+    
+    // Gather all recipe steps
+    const steps = document.querySelectorAll('.recipe-step');
+    steps.forEach(step => {
+        recipeData.steps.push({
+            water: step.querySelector('input[type="number"]').value,
+            description: step.querySelector('input[type="text"]').value,
+            minutes: step.querySelector('.minutes').value,
+            seconds: step.querySelector('.seconds').value
+        });
+    });
+    
+    // Create shareable URL
+    const jsonString = JSON.stringify(recipeData);
+    const encodedData = encodeURIComponent(jsonString);
+    const shareableUrl = `${window.location.origin}${window.location.pathname}?data=${encodedData}`;
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(shareableUrl)
+        .then(() => alert('Share link copied to clipboard!'))
+        .catch(err => console.error('Failed to copy:', err));
+}
+
+function loadSharedRecipe() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharedData = urlParams.get('data');
+    
+    if (!sharedData) return;
+    
+    try {
+        const recipeData = JSON.parse(decodeURIComponent(sharedData));
+        
+        // Set main calculator values
+        if (recipeData.water) waterInput.value = recipeData.water;
+        if (recipeData.coffee) coffeeInput.value = recipeData.coffee;
+        if (recipeData.ratio) ratioSelect.value = recipeData.ratio;
+        
+        // Clear existing steps
+        document.getElementById('recipe-steps').innerHTML = '';
+        
+        // Add shared steps
+        recipeData.steps.forEach(step => {
+            addRecipeStep(step);
+        });
+    } catch (error) {
+        console.error('Error loading shared recipe:', error);
+    }
+}
+
+// Modify your existing addRecipeStep function to accept initial values
+function addRecipeStep(initialValues = null) {
+    const stepsContainer = document.getElementById('recipe-steps');
+    const stepElement = document.createElement('div');
+    stepElement.className = 'recipe-step';
+    
+    // Water amount input
+    const waterInput = document.createElement('input');
+    waterInput.type = 'number';
+    waterInput.min = '0';
+    waterInput.step = '1';
+    waterInput.inputMode = 'numeric';
+    waterInput.pattern = '[0-9]*';
+    waterInput.placeholder = 'Water (g)';
+    if (initialValues) waterInput.value = initialValues.water;
+    
+    // Step description input
+    const descriptionInput = document.createElement('input');
+    descriptionInput.type = 'text';
+    descriptionInput.placeholder = 'Step description';
+    if (initialValues) descriptionInput.value = initialValues.description;
+    
+    // Time input container
+    const timeContainer = document.createElement('div');
+    timeContainer.className = 'time-container';
+    
+    // Minutes input
+    const minutesInput = document.createElement('input');
+    minutesInput.type = 'number';
+    minutesInput.className = 'time-input minutes';
+    minutesInput.min = '0';
+    minutesInput.max = '59';
+    minutesInput.step = '1';
+    minutesInput.inputMode = 'numeric';
+    minutesInput.pattern = '[0-9]*';
+    minutesInput.placeholder = 'MM';
+    if (initialValues) minutesInput.value = initialValues.minutes;
+    
+    // Time separator
+    const timeSeparator = document.createElement('span');
+    timeSeparator.textContent = ':';
+    timeSeparator.className = 'time-separator';
+    
+    // Seconds input
+    const secondsInput = document.createElement('input');
+    secondsInput.type = 'number';
+    secondsInput.className = 'time-input seconds';
+    secondsInput.min = '0';
+    secondsInput.max = '59';
+    secondsInput.step = '1';
+    secondsInput.inputMode = 'numeric';
+    secondsInput.pattern = '[0-9]*';
+    secondsInput.placeholder = 'SS';
+    if (initialValues) secondsInput.value = initialValues.seconds;
+    
+    // Add time components to container
+    timeContainer.appendChild(minutesInput);
+    timeContainer.appendChild(timeSeparator);
+    timeContainer.appendChild(secondsInput);
+    
+    // Remove button
+    const removeButton = document.createElement('button');
+    removeButton.className = 'remove-step';
+    removeButton.textContent = '×';
+    removeButton.addEventListener('click', () => stepElement.remove());
+    
+    // Add all elements to the step
+    stepElement.appendChild(waterInput);
+    stepElement.appendChild(descriptionInput);
+    stepElement.appendChild(timeContainer);
+    stepElement.appendChild(removeButton);
+    
+    stepsContainer.appendChild(stepElement);
+}
+
+createShareButton();
+loadSharedRecipe(); // This will load shared recipe if URL has data parameter
