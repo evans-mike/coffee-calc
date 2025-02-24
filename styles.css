@@ -79,3 +79,58 @@ input[type="number"] {
 .time-input {
     width: 120px;
 }
+
+/* ... (previous styles remain the same) */
+
+.recipe-step {
+    display: grid;
+    grid-template-columns: 120px 200px 140px 40px;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+}
+
+.time-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: white;
+    padding: 5px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+.time-input {
+    width: 45px;
+    border: none;
+    text-align: center;
+    padding: 2px;
+    font-size: 16px; /* Minimum 16px to prevent zoom on mobile */
+    -moz-appearance: textfield;
+}
+
+.time-input:focus {
+    outline: none;
+    background-color: #f0f0f0;
+}
+
+.time-separator {
+    font-weight: bold;
+    color: #666;
+    user-select: none;
+}
+
+/* Remove spinner buttons from number inputs */
+.time-input::-webkit-inner-spin-button,
+.time-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Add touch-friendly tap targets */
+.time-container input {
+    min-height: 44px; /* Minimum recommended touch target size */
+}
