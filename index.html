@@ -8,15 +8,16 @@
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.4.4/libs/lz-string.min.js"></script>
   </head>
   <body>
-    <div class="theme-toggle">
-        <label class="theme-switch">
-            <input type="checkbox" id="theme-toggle">
-            <span class="slider"></span>
-        </label>
+    <div class="header-container">
+        <button id="reset-button" class="reset-button" title="Reset All Inputs">×</button>
+        <h1 class="app-title">Coffee Calc</h1>
+        <div class="theme-toggle">
+            <label class="theme-switch">
+                <input type="checkbox" id="theme-toggle">
+                <span class="slider"></span>
+            </label>
+        </div>
     </div>
-    <!-- Add this right after the opening body tag -->
-    <button id="reset-button" class="reset-button" title="Reset All Inputs">×</button>
-    <h1>Coffee Ratio Calculator</h1>
     <div class="calculator-section">
       <div class="form-group">
         <label for="water">Water (grams):</label>

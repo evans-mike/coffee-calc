@@ -1,207 +1,279 @@
 /* Theme Variables */
 :root {
-    /* Light Theme (Default) */
-    --background-primary: #F2F2F7;
-    --background-secondary: #FFFFFF;
-    --text-primary: #000000;
-    --text-secondary: #6C6C70;
-    --border-color: #E5E5EA;
-    --input-background: #FFFFFF;
-    --button-primary: #007AFF;
-    --button-secondary: #5856D6;
-    --button-danger: #FF3B30;
-    --success-color: #34C759;
-    --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  /* Light Theme (Default) */
+  --background-primary: #f2f2f7;
+  --background-secondary: #ffffff;
+  --text-primary: #000000;
+  --text-secondary: #6c6c70;
+  --border-color: #e5e5ea;
+  --input-background: #ffffff;
+  --button-primary: #007aff;
+  --button-secondary: #5856d6;
+  --button-danger: #ff3b30;
+  --success-color: #34c759;
+  --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
 /* Dark Theme */
 [data-theme="dark"] {
-    --background-primary: #000000;
-    --background-secondary: #1C1C1E;
-    --text-primary: #FFFFFF;
-    --text-secondary: #8E8E93;
-    --border-color: #38383A;
-    --input-background: #1C1C1E;
-    --button-primary: #0A84FF;
-    --button-secondary: #5E5CE6;
-    --button-danger: #FF453A;
-    --success-color: #32D74B;
-    --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  --background-primary: #000000;
+  --background-secondary: #1c1c1e;
+  --text-primary: #ffffff;
+  --text-secondary: #8e8e93;
+  --border-color: #38383a;
+  --input-background: #1c1c1e;
+  --button-primary: #0a84ff;
+  --button-secondary: #5e5ce6;
+  --button-danger: #ff453a;
+  --success-color: #32d74b;
+  --card-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
 /* Base Styles */
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;
-    background-color: var(--background-primary);
-    color: var(--text-primary);
-    margin: 0;
-    padding: 20px;
-    transition: background-color 0.3s, color 0.3s;
-    -webkit-font-smoothing: antialiased;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "SF Pro Display", system-ui, sans-serif;
+  background-color: var(--background-primary);
+  color: var(--text-primary);
+  margin: 0;
+  padding: 20px;
+  transition: background-color 0.3s, color 0.3s;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Theme Toggle */
 .theme-toggle {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 1000;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
 }
 
 .theme-switch {
-    position: relative;
-    display: inline-block;
-    width: 51px;
-    height: 31px;
+  position: relative;
+  display: inline-block;
+  width: 51px;
+  height: 31px;
 }
 
 .theme-switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
+  opacity: 0;
+  width: 0;
+  height: 0;
 }
 
 .slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #E5E5EA;
-    transition: .4s;
-    border-radius: 31px;
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #e5e5ea;
+  transition: 0.4s;
+  border-radius: 31px;
 }
 
 .slider:before {
-    position: absolute;
-    content: "";
-    height: 27px;
-    width: 27px;
-    left: 2px;
-    bottom: 2px;
-    background-color: white;
-    transition: .4s;
-    border-radius: 50%;
+  position: absolute;
+  content: "";
+  height: 27px;
+  width: 27px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
 }
 
 input:checked + .slider {
-    background-color: var(--button-primary);
+  background-color: var(--button-primary);
 }
 
 input:checked + .slider:before {
-    transform: translateX(20px);
+  transform: translateX(20px);
 }
 
 /* Input Styles */
-input, select, textarea {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-    background-color: var(--input-background);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    padding: 12px 16px;
-    font-size: 17px;
-    width: 100%;
-    box-sizing: border-box;
-    transition: all 0.3s;
-    -webkit-appearance: none;
+input,
+select,
+textarea {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui,
+    sans-serif;
+  background-color: var(--input-background);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 17px;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.3s;
+  -webkit-appearance: none;
 }
 
-input:focus, select:focus, textarea:focus {
-    outline: none;
-    border-color: var(--button-primary);
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--button-primary);
 }
 
 /* Button Styles */
 .button {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
-    border: none;
-    border-radius: 10px;
-    padding: 12px 24px;
-    font-size: 17px;
-    font-weight: 600;
-    color: white;
-    background-color: var(--button-primary);
-    transition: all 0.3s;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui,
+    sans-serif;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 24px;
+  font-size: 17px;
+  font-weight: 600;
+  color: white;
+  background-color: var(--button-primary);
+  transition: all 0.3s;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .button:active {
-    transform: scale(0.98);
-    opacity: 0.9;
+  transform: scale(0.98);
+  opacity: 0.9;
 }
 
 .timer-button {
-    background-color: var(--button-secondary);
+  background-color: var(--button-secondary);
 }
 
 .reset-button {
-    background-color: var(--button-danger);
+  background-color: var(--button-danger);
 }
 
 /* Section Styles */
-.metadata-section, .recipe-step {
-    background-color: var(--background-secondary);
-    border-radius: 14px;
-    padding: 16px;
-    margin-bottom: 16px;
-    box-shadow: var(--card-shadow);
+.metadata-section,
+.recipe-step {
+  background-color: var(--background-secondary);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: var(--card-shadow);
 }
 
 .form-group {
-    margin-bottom: 20px;
+  margin-bottom: 20px;
 }
 
 label {
-    display: block;
-    color: var(--text-secondary);
-    font-size: 15px;
-    margin-bottom: 8px;
-    font-weight: 500;
+  display: block;
+  color: var(--text-secondary);
+  font-size: 15px;
+  margin-bottom: 8px;
+  font-weight: 500;
 }
 
 /* Timer Display */
 .current-timer {
-    font-size: 34px;
-    font-weight: 700;
-    text-align: center;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
-    margin: 20px 0;
+  font-size: 34px;
+  font-weight: 700;
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui,
+    sans-serif;
+  margin: 20px 0;
 }
 
 /* iPhone 12 Mini Optimization */
 @media screen and (max-width: 375px) {
-    body {
-        padding: 16px;
-    }
+  body {
+    padding: 16px;
+  }
 
-    .metadata-section {
-        grid-template-columns: 1fr;
-        gap: 12px;
-    }
+  .metadata-section {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
 
-    .recipe-step {
-        padding: 12px;
-    }
+  .recipe-step {
+    padding: 12px;
+  }
 
-    input, select, textarea {
-        font-size: 16px;
-        padding: 10px 14px;
-    }
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+    padding: 10px 14px;
+  }
 
-    .button {
-        width: 100%;
-        padding: 14px 20px;
-    }
+  .button {
+    width: 100%;
+    padding: 14px 20px;
+  }
 
-    .theme-toggle {
-        top: 16px;
-        right: 16px;
-    }
+  .theme-toggle {
+    top: 16px;
+    right: 16px;
+  }
 
-    .current-timer {
-        font-size: 28px;
-    }
+  .current-timer {
+    font-size: 28px;
+  }
+}
+
+/* Add these styles for the header */
+.header-container {
+  position: sticky;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background-color: var(--background-primary);
+  z-index: 1000;
+  margin: -20px -20px 20px -20px; /* Compensate for body padding */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.app-title {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui,
+    sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+/* Update existing reset button styles */
+.reset-button {
+  position: relative; /* Change from fixed to relative */
+  top: auto;
+  left: auto;
+  width: 32px;
+  height: 32px;
+  font-size: 20px;
+  margin: 0;
+}
+
+/* Update existing theme toggle styles */
+.theme-toggle {
+  position: relative; /* Change from fixed to relative */
+  top: auto;
+  right: auto;
+}
+
+/* iPhone 12 Mini optimization */
+@media screen and (max-width: 375px) {
+  .header-container {
+    padding: 12px 16px;
+    margin: -16px -16px 16px -16px; /* Match body padding */
+  }
+
+  .app-title {
+    font-size: 18px;
+  }
+
+  .reset-button {
+    width: 28px;
+    height: 28px;
+    font-size: 18px;
+  }
 }
