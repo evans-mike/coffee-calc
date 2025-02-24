@@ -353,22 +353,6 @@ function generateRecipeMarkdown() {
     return markdown;
 }
 
-// Update the share button functionality
-function createShareButton() {
-    const shareContainer = document.createElement('div');
-    shareContainer.className = 'share-container';
-    
-    const shareButton = document.createElement('button');
-    shareButton.textContent = 'Share Recipe';
-    shareButton.className = 'button share-button';
-    shareButton.addEventListener('click', shareRecipe);
-    
-    shareContainer.appendChild(shareButton);
-    
-    // Add it after the timer controls
-    const timerControls = document.querySelector('.timer-controls');
-    timerControls.parentNode.insertBefore(shareContainer, timerControls.nextSibling);
-}
 
 function shareRecipe() {
     const shareableUrl = buildUrlWithValues();
@@ -565,10 +549,7 @@ function addRecipeStep(initialValues = null) {
     stepsContainer.appendChild(stepElement);
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-    createShareButton();
-    loadSharedRecipe();
-});
+
 
 // Update the reset function
 function resetAllInputs() {
@@ -612,5 +593,14 @@ function initTheme() {
     });
 }
 
-// Initialize theme when DOM is loaded
-document.addEventListener('DOMContentLoaded', initTheme);
+
+window.addEventListener('DOMContentLoaded', () => {
+    loadSharedRecipe();
+    initTheme();
+    
+    // Add share button event listener
+    const shareBtn = document.getElementById('shareBtn');
+    if (shareBtn) {
+        shareBtn.addEventListener('click', shareRecipe);
+    }
+});
