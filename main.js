@@ -316,6 +316,44 @@ document.getElementById('reset-timer').addEventListener('click', resetTimer);
 
 // Add these functions after your existing code
 
+// Function to generate markdown for the recipe
+function generateRecipeMarkdown() {
+    const water = document.getElementById('water-input').value;
+    const coffee = document.getElementById('coffee-input').value;
+    const ratio = document.getElementById('ratio-select').value;
+    const grindSize = document.getElementById('grind-size').value;
+    const waterTemp = document.getElementById('water-temp').value;
+    const notes = document.getElementById('additional-notes').value;
+    const steps = Array.from(document.querySelectorAll('.recipe-step'));
+
+    let markdown = `# Coffee Recipe\n\n`;
+    markdown += `## Recipe Details\n`;
+    markdown += `- Water: ${water}g\n`;
+    markdown += `- Coffee: ${coffee}g\n`;
+    markdown += `- Ratio: ${ratio}:1\n`;
+    markdown += `- Grind Size: ${grindSize}µm\n`;
+    markdown += `- Water Temperature: ${waterTemp}°F\n\n`;
+
+    markdown += `## Steps\n`;
+    steps.forEach((step, index) => {
+        const water = step.querySelector('input[type="number"]').value;
+        const description = step.querySelector('input[type="text"]').value;
+        const minutes = step.querySelector('.minutes').value || '0';
+        const seconds = step.querySelector('.seconds').value || '0';
+        
+        markdown += `${index + 1}. Pour ${water}g - ${description} (${minutes}:${seconds.padStart(2, '0')})\n`;
+    });
+
+    if (notes.trim()) {
+        markdown += `\n## Additional Notes\n${notes}\n`;
+    }
+
+    markdown += `\nGenerated with Coffee Calc`;
+
+    return markdown;
+}
+
+// Update the share button functionality
 function createShareButton() {
     const shareContainer = document.createElement('div');
     shareContainer.className = 'share-container';
@@ -330,6 +368,36 @@ function createShareButton() {
     // Add it after the timer controls
     const timerControls = document.querySelector('.timer-controls');
     timerControls.parentNode.insertBefore(shareContainer, timerControls.nextSibling);
+}
+
+function shareRecipe() {
+    const shareableUrl = buildUrlWithValues();
+    const recipeText = generateRecipeMarkdown();
+    
+    // If Web Share API is supported, use it
+    if (navigator.share) {
+        navigator.share({
+            title: 'Coffee Recipe',
+            text: recipeText,
+            url: shareableUrl
+        }).catch(err => {
+            console.log('Sharing canceled or failed', err);
+            // Fallback to clipboard
+            fallbackToClipboard(shareableUrl, recipeText);
+        });
+    } else {
+        // Fallback to clipboard if Web Share API is not supported
+        fallbackToClipboard(shareableUrl, recipeText);
+    }
+}
+
+function fallbackToClipboard(url, markdown) {
+    // Copy both the markdown and URL to clipboard
+    const textToCopy = `${markdown}\n\nRecipe URL: ${url}`;
+    
+    navigator.clipboard.writeText(textToCopy)
+        .then(() => alert('Recipe copied to clipboard!'))
+        .catch(err => alert('Error copying recipe: ' + err));
 }
 
 function buildUrlWithValues() {
