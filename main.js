@@ -164,3 +164,90 @@ function addRecipeStep() {
     
     stepsContainer.appendChild(stepElement);
 }
+
+// Timer functionality
+let timerRunning = false;
+let currentStepIndex = 0;
+let timerInterval;
+
+function getTimeInSeconds(minutes, seconds) {
+    return (parseInt(minutes || '0') * 60) + parseInt(seconds || '0');
+}
+
+function formatTime(totalSeconds) {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function startTimers() {
+    const startButton = document.getElementById('start-timer');
+    const currentTimerDisplay = document.getElementById('current-timer');
+    const steps = document.querySelectorAll('.recipe-step');
+    
+    if (steps.length === 0) {
+        alert('Add at least one step before starting the timer');
+        return;
+    }
+    
+    if (timerRunning) {
+        return;
+    }
+    
+    timerRunning = true;
+    currentStepIndex = 0;
+    startButton.disabled = true;
+    
+    function startNextTimer() {
+        if (currentStepIndex >= steps.length) {
+            // All timers completed
+            timerRunning = false;
+            startButton.disabled = false;
+            currentTimerDisplay.textContent = 'Complete!';
+            return;
+        }
+        
+        // Reset previous step styling if exists
+        if (currentStepIndex > 0) {
+            steps[currentStepIndex - 1].classList.remove('active');
+            steps[currentStepIndex - 1].classList.add('completed');
+        }
+        
+        const currentStep = steps[currentStepIndex];
+        currentStep.classList.add('active');
+        
+        const minutesInput = currentStep.querySelector('.minutes');
+        const secondsInput = currentStep.querySelector('.seconds');
+        const stepDescription = currentStep.querySelector('input[type="text"]').value;
+        
+        let timeLeft = getTimeInSeconds(
+            minutesInput.value,
+            secondsInput.value
+        );
+        
+        if (timeLeft <= 0) {
+            currentStepIndex++;
+            startNextTimer();
+            return;
+        }
+        
+        currentTimerDisplay.textContent = `${stepDescription}: ${formatTime(timeLeft)}`;
+        
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            currentTimerDisplay.textContent = `${stepDescription}: ${formatTime(timeLeft)}`;
+            
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                currentStepIndex++;
+                startNextTimer();
+            }
+        }, 1000);
+    }
+    
+    startNextTimer();
+}
+
+// Add event listener for start button
+document.getElementById('start-timer').addEventListener('click', startTimers);

@@ -134,3 +134,40 @@ input[type="number"] {
 .time-container input {
     min-height: 44px; /* Minimum recommended touch target size */
 }
+
+/* Add these new styles */
+.timer-controls {
+    margin: 20px 0;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.timer-button {
+    background-color: #2196F3;
+}
+
+.timer-button:hover {
+    background-color: #1976D2;
+}
+
+.timer-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.current-timer {
+    font-size: 24px;
+    font-weight: bold;
+    color: #333;
+}
+
+.recipe-step.active {
+    background-color: #e3f2fd;
+    border-left: 4px solid #2196F3;
+}
+
+.recipe-step.completed {
+    background-color: #e8f5e9;
+    border-left: 4px solid #4CAF50;
+}
