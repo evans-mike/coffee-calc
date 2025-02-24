@@ -1,3 +1,12 @@
+// Global state variables
+let lastUpdated = ["ratio"]; // Track the order of updates
+let timerRunning = false;
+let currentStepIndex = 0;
+let timerInterval;
+let isPaused = false;
+let currentTimeLeft = 0;
+let currentStepDescription = "";
+
 // Get DOM elements
 const waterInput = document.getElementById("water");
 const coffeeInput = document.getElementById("coffee");
@@ -5,36 +14,20 @@ const ratioSelect = document.getElementById("ratio");
 
 // Populate ratio options (1:1 to 100:1) with 16:1 as default
 function populateRatioOptions() {
-    const defaultRatio = "16";
-    ratioSelect.innerHTML = ''; // Clear existing options
+  const defaultRatio = "16";
+  ratioSelect.innerHTML = ""; // Clear existing options
 
-    // Add ratio options from 1:1 to 100:1
-    for (let i = 1; i <= 100; i++) {
-        const option = document.createElement("option");
-        option.value = i.toString();
-        option.textContent = `${i}:1`;
-        if (i.toString() === defaultRatio) {
-            option.selected = true;
-        }
-        ratioSelect.appendChild(option);
+  // Add ratio options from 1:1 to 100:1
+  for (let i = 1; i <= 100; i++) {
+    const option = document.createElement("option");
+    option.value = i.toString();
+    option.textContent = `${i}:1`;
+    if (i.toString() === defaultRatio) {
+      option.selected = true;
     }
+    ratioSelect.appendChild(option);
+  }
 }
-
-// Call this function when the page loads
-window.addEventListener('DOMContentLoaded', () => {
-    populateRatioOptions();
-    loadSharedRecipe();
-    initTheme();
-    
-    // Add share button event listener
-    const shareBtn = document.getElementById('shareBtn');
-    if (shareBtn) {
-        shareBtn.addEventListener('click', shareRecipe);
-    }
-});
-
-// Call this function when the page loads
-populateRatioOptions();
 
 function updateLastTouched(inputType) {
   // Remove the input type if it's already in the array
@@ -335,39 +328,44 @@ document.getElementById("reset-timer").addEventListener("click", resetTimer);
 
 // Function to generate markdown for the recipe
 function generateRecipeMarkdown() {
-    const water = waterInput.value;  // Use the global reference
-    const coffee = coffeeInput.value;  // Use the global reference
-    const ratio = ratioSelect.value;  // Use the global reference
-    const grindSize = document.getElementById('grind-size').value;
-    const waterTemp = document.getElementById('water-temp').value;
-    const notes = document.getElementById('additional-notes').value;
-    const steps = Array.from(document.querySelectorAll('.recipe-step'));
+  const water = waterInput.value; // Use the global reference
+  const coffee = coffeeInput.value; // Use the global reference
+  const ratio = ratioSelect.value; // Use the global reference
+  const grindSize = document.getElementById("grind-size").value;
+  const waterTemp = document.getElementById("water-temp").value;
+  const notes = document.getElementById("additional-notes").value;
+  const steps = Array.from(document.querySelectorAll(".recipe-step"));
 
-    let markdown = `# Coffee Recipe\n\n`;
-    markdown += `## Recipe Details\n`;
-    markdown += `- Water: ${water}g\n`;
-    markdown += `- Coffee: ${coffee}g\n`;
-    markdown += `- Ratio: ${ratio}:1\n`;
-    markdown += `- Grind Size: ${grindSize}µm\n`;
-    markdown += `- Water Temperature: ${waterTemp}°F\n\n`;
+  let markdown = `# Coffee Recipe\n\n`;
+  markdown += `## Recipe Details\n`;
+  markdown += `- Water: ${water}g\n`;
+  markdown += `- Coffee: ${coffee}g\n`;
+  markdown += `- Ratio: ${ratio}:1\n`;
+  markdown += `- Grind Size: ${grindSize}µm\n`;
+  markdown += `- Water Temperature: ${waterTemp}°F\n\n`;
 
-    markdown += `## Steps\n`;
-    steps.forEach((step, index) => {
-        const water = step.querySelector('input[type="number"]').value;
-        const description = step.querySelector('input[type="text"]').value;
-        const minutes = step.querySelector('.minutes').value || '0';
-        const seconds = step.querySelector('.seconds').value || '0';
-        
-        markdown += `${index + 1}. Pour ${water}g - ${description} (${minutes}:${seconds.padStart(2, '0')})\n`;
-    });
+  markdown += `## Steps\n`;
+  steps.forEach((step, index) => {
+    const water = step.querySelector('input[type="number"]').value;
+    const description = step.querySelector('input[type="text"]').value;
+    const minutes = step.querySelector(".minutes").value || "0";
+    const seconds = step.querySelector(".seconds").value || "0";
 
-    if (notes.trim()) {
-        markdown += `\n## Additional Notes\n${notes}\n`;
-    }
+    markdown += `${
+      index + 1
+    }. Pour ${water}g - ${description} (${minutes}:${seconds.padStart(
+      2,
+      "0"
+    )})\n`;
+  });
 
-    markdown += `\nGenerated with Coffee Calc`;
+  if (notes.trim()) {
+    markdown += `\n## Additional Notes\n${notes}\n`;
+  }
 
-    return markdown;
+  markdown += `\nGenerated with Coffee Calc`;
+
+  return markdown;
 }
 
 function shareRecipe() {
@@ -579,50 +577,50 @@ function addRecipeStep(initialValues = null) {
 
 // Update the reset function
 function resetAllInputs() {
-    // Reset calculator inputs
-    waterInput.value = '';
-    coffeeInput.value = '';
-    ratioSelect.value = '16'; // Default ratio
-    
-    // Reset metadata inputs
-    document.getElementById('grind-size').value = '650';
-    document.getElementById('water-temp').value = '200';
-    document.getElementById('additional-notes').value = '';
-    
-    // Clear recipe steps
-    document.getElementById('recipe-steps').innerHTML = '';
-    
-    // Reset timer
-    const currentTimerDisplay = document.getElementById('current-timer');
-    if (currentTimerDisplay) {
-        currentTimerDisplay.textContent = '';
-    }
-    
-    // Reset timer buttons
-    const startButton = document.getElementById('start-timer');
-    const pauseButton = document.getElementById('pause-timer');
-    const resetButton = document.getElementById('reset-timer');
-    
-    if (startButton) startButton.disabled = false;
-    if (pauseButton) pauseButton.disabled = true;
-    if (resetButton) resetButton.disabled = true;
-    
-    // Reset timer variables
-    timerRunning = false;
-    isPaused = false;
-    currentStepIndex = 0;
-    currentTimeLeft = 0;
-    clearInterval(timerInterval);
-    
-    // Clear URL parameters but don't refresh the page
-    window.history.pushState({}, '', window.location.pathname);
+  // Reset calculator inputs
+  waterInput.value = "";
+  coffeeInput.value = "";
+  ratioSelect.value = "16"; // Default ratio
+
+  // Reset metadata inputs
+  document.getElementById("grind-size").value = "650";
+  document.getElementById("water-temp").value = "200";
+  document.getElementById("additional-notes").value = "";
+
+  // Clear recipe steps
+  document.getElementById("recipe-steps").innerHTML = "";
+
+  // Reset timer
+  const currentTimerDisplay = document.getElementById("current-timer");
+  if (currentTimerDisplay) {
+    currentTimerDisplay.textContent = "";
+  }
+
+  // Reset timer buttons
+  const startButton = document.getElementById("start-timer");
+  const pauseButton = document.getElementById("pause-timer");
+  const resetButton = document.getElementById("reset-timer");
+
+  if (startButton) startButton.disabled = false;
+  if (pauseButton) pauseButton.disabled = true;
+  if (resetButton) resetButton.disabled = true;
+
+  // Reset timer variables
+  timerRunning = false;
+  isPaused = false;
+  currentStepIndex = 0;
+  currentTimeLeft = 0;
+  clearInterval(timerInterval);
+
+  // Clear URL parameters but don't refresh the page
+  window.history.pushState({}, "", window.location.pathname);
 }
 
 // Add event listener for reset button
-document.getElementById('reset-button').addEventListener('click', () => {
-    if (confirm('Are you sure you want to reset all inputs?')) {
-        resetAllInputs();
-    }
+document.getElementById("reset-button").addEventListener("click", () => {
+  if (confirm("Are you sure you want to reset all inputs?")) {
+    resetAllInputs();
+  }
 });
 
 // Theme handling
@@ -653,6 +651,7 @@ function initTheme() {
 }
 
 window.addEventListener("DOMContentLoaded", () => {
+  populateRatioOptions(); // Add this line
   loadSharedRecipe();
   initTheme();
 
