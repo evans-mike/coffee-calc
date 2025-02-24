@@ -145,7 +145,23 @@ textarea:focus {
 }
 
 .reset-button {
-  background-color: var(--button-danger);
+    background: none;
+    border: none;
+    padding: 8px;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s;
+}
+
+.reset-button:hover {
+    opacity: 0.7;
+}
+
+.reset-button ion-icon {
+    font-size: 24px;
 }
 
 /* Section Styles */
@@ -285,21 +301,27 @@ label {
 }
 
 .icon-button {
-  background: none;
-  border: none;
-  padding: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-primary);
-  transition: opacity 0.2s;
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-primary);
+    transition: opacity 0.2s;
 }
 
 .icon-button:hover {
-  opacity: 0.7;
+    opacity: 0.7;
 }
 
 .icon-button ion-icon {
-  font-size: 24px;
+    font-size: 24px;
+}
+
+#add-step {
+    margin: 16px auto;
+    display: flex;
+    justify-content: center;
 }
