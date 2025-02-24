@@ -8,32 +8,43 @@
 </head>
 <body>
     <h1>Coffee Ratio Calculator</h1>
-    <div class="form-group">
-        <label for="water">Water (grams):</label>
-        <input 
-            type="number" 
-            id="water" 
-            inputmode="numeric" 
-            pattern="[0-9]*" 
-            min="0" 
-            step="1">
+    <div class="calculator-section">
+        <div class="form-group">
+            <label for="water">Water (grams):</label>
+            <input 
+                type="number" 
+                id="water" 
+                inputmode="numeric" 
+                pattern="[0-9]*" 
+                min="0" 
+                step="1">
+        </div>
+        <div class="form-group">
+            <label for="coffee">Coffee (grams):</label>
+            <input 
+                type="number" 
+                id="coffee" 
+                inputmode="numeric" 
+                pattern="[0-9]*" 
+                min="0" 
+                step="1">
+        </div>
+        <div class="form-group">
+            <label for="ratio">Ratio (water:coffee):</label>
+            <select id="ratio">
+                <option value="">Select ratio</option>
+            </select>
+        </div>
     </div>
-    <div class="form-group">
-        <label for="coffee">Coffee (grams):</label>
-        <input 
-            type="number" 
-            id="coffee" 
-            inputmode="numeric" 
-            pattern="[0-9]*" 
-            min="0" 
-            step="1">
+
+    <div class="recipe-section">
+        <h2>Recipe Steps</h2>
+        <div id="recipe-steps">
+            <!-- Steps will be added here -->
+        </div>
+        <button id="add-step" class="button">Add Step</button>
     </div>
-    <div class="form-group">
-        <label for="ratio">Ratio (water:coffee):</label>
-        <select id="ratio">
-            <option value="">Select ratio</option>
-        </select>
-    </div>
+
     <script src="main.js"></script>
 </body>
 </html>

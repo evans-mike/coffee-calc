@@ -1,6 +1,6 @@
 # Coffee Calculator
 
-A simple, intuitive calculator for coffee brewing ratios.
+A simple, intuitive calculator for coffee brewing ratios with recipe steps functionality.
 
 ## Features
 
@@ -15,10 +15,20 @@ A simple, intuitive calculator for coffee brewing ratios.
   - Water (in grams)
   - Coffee (in grams)
   - Ratio (water:coffee)
+- Mobile-friendly numeric inputs
 - Smart calculation behavior:
   - Calculations occur when clicking away from input fields (on blur)
   - No premature calculations while typing
   - Dropdown menu for ratio selection
+
+### Recipe Steps
+- Add multiple steps to your coffee recipe
+- Each step includes:
+  - Water amount (in grams)
+  - Step description
+  - Time duration (MM:SS format)
+- Ability to remove individual steps
+- Optional: steps can be added after basic ratio calculation
 
 ### Smart Calculation Logic
 - Tracks the last two modified values to determine what to calculate
@@ -41,6 +51,12 @@ A simple, intuitive calculator for coffee brewing ratios.
 2. Enter either water or coffee amount
 3. The third value will automatically calculate
 4. Adjust any value to automatically recalculate based on the last two modified inputs
+5. Optionally add recipe steps with specific water amounts and timings
+
+## File Structure
+- `index.html`: Main HTML structure
+- `styles.css`: All styling rules
+- `main.js`: Calculator and recipe step logic
 
 ---
-Last updated: 2025-02-23
+Last updated: 2025-02-24
