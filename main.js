@@ -1,168 +1,168 @@
 // Get DOM elements
-const waterInput = document.getElementById('water');
-const coffeeInput = document.getElementById('coffee');
-const ratioSelect = document.getElementById('ratio');
+const waterInput = document.getElementById("water");
+const coffeeInput = document.getElementById("coffee");
+const ratioSelect = document.getElementById("ratio");
 
 // Track the order of updates (ratio starts as most recently updated due to default)
-let lastUpdated = ['ratio'];
+let lastUpdated = ["ratio"];
 
 // Populate ratio options (1:1 to 100:1) with 16:1 as default
 function populateRatioOptions() {
-    const defaultRatio = 16;
-    
-    for (let i = 1; i <= 100; i++) {
-        const option = document.createElement('option');
-        option.value = i;
-        option.textContent = `${i}:1`;
-        if (i === defaultRatio) {
-            option.selected = true;
-        }
-        ratioSelect.appendChild(option);
+  const defaultRatio = 16;
+
+  for (let i = 1; i <= 100; i++) {
+    const option = document.createElement("option");
+    option.value = i;
+    option.textContent = `${i}:1`;
+    if (i === defaultRatio) {
+      option.selected = true;
     }
+    ratioSelect.appendChild(option);
+  }
 }
 
 // Call this function when the page loads
 populateRatioOptions();
 
 function updateLastTouched(inputType) {
-    // Remove the input type if it's already in the array
-    lastUpdated = lastUpdated.filter(item => item !== inputType);
-    // Add it to the end (most recent)
-    lastUpdated.push(inputType);
-    // Keep only the last two updates
-    if (lastUpdated.length > 2) {
-        lastUpdated.shift();
-    }
-    calculateBasedOnLastUpdates();
+  // Remove the input type if it's already in the array
+  lastUpdated = lastUpdated.filter((item) => item !== inputType);
+  // Add it to the end (most recent)
+  lastUpdated.push(inputType);
+  // Keep only the last two updates
+  if (lastUpdated.length > 2) {
+    lastUpdated.shift();
+  }
+  calculateBasedOnLastUpdates();
 }
 
 function calculateBasedOnLastUpdates() {
-    const water = parseFloat(waterInput.value);
-    const coffee = parseFloat(coffeeInput.value);
-    const ratio = parseInt(ratioSelect.value);
+  const water = parseFloat(waterInput.value);
+  const coffee = parseFloat(coffeeInput.value);
+  const ratio = parseInt(ratioSelect.value);
 
-    // Don't calculate until we have at least two values
-    if (lastUpdated.length < 2) return;
+  // Don't calculate until we have at least two values
+  if (lastUpdated.length < 2) return;
 
-    // The value to calculate is the one NOT in lastUpdated
-    const toCalculate = ['water', 'coffee', 'ratio'].find(
-        item => !lastUpdated.includes(item)
-    );
+  // The value to calculate is the one NOT in lastUpdated
+  const toCalculate = ["water", "coffee", "ratio"].find(
+    (item) => !lastUpdated.includes(item)
+  );
 
-    switch (toCalculate) {
-        case 'water':
-            if (!isNaN(coffee) && !isNaN(ratio)) {
-                const calculatedWater = coffee * ratio;
-                waterInput.value = calculatedWater.toFixed(0);
-            }
-            break;
-        case 'coffee':
-            if (!isNaN(water) && !isNaN(ratio)) {
-                const calculatedCoffee = water / ratio;
-                coffeeInput.value = calculatedCoffee.toFixed(1);
-            }
-            break;
-        case 'ratio':
-            if (!isNaN(water) && !isNaN(coffee)) {
-                const calculatedRatio = Math.round(water / coffee);
-                if (calculatedRatio >= 1 && calculatedRatio <= 100) {
-                    ratioSelect.value = calculatedRatio;
-                }
-            }
-            break;
-    }
+  switch (toCalculate) {
+    case "water":
+      if (!isNaN(coffee) && !isNaN(ratio)) {
+        const calculatedWater = coffee * ratio;
+        waterInput.value = calculatedWater.toFixed(0);
+      }
+      break;
+    case "coffee":
+      if (!isNaN(water) && !isNaN(ratio)) {
+        const calculatedCoffee = water / ratio;
+        coffeeInput.value = calculatedCoffee.toFixed(1);
+      }
+      break;
+    case "ratio":
+      if (!isNaN(water) && !isNaN(coffee)) {
+        const calculatedRatio = Math.round(water / coffee);
+        if (calculatedRatio >= 1 && calculatedRatio <= 100) {
+          ratioSelect.value = calculatedRatio;
+        }
+      }
+      break;
+  }
 }
 
 // Add event listeners for calculator
-waterInput.addEventListener('blur', () => {
-    if (waterInput.value !== '') {
-        updateLastTouched('water');
-    }
+waterInput.addEventListener("blur", () => {
+  if (waterInput.value !== "") {
+    updateLastTouched("water");
+  }
 });
 
-coffeeInput.addEventListener('blur', () => {
-    if (coffeeInput.value !== '') {
-        updateLastTouched('coffee');
-    }
+coffeeInput.addEventListener("blur", () => {
+  if (coffeeInput.value !== "") {
+    updateLastTouched("coffee");
+  }
 });
 
-ratioSelect.addEventListener('change', () => {
-    if (ratioSelect.value !== '') {
-        updateLastTouched('ratio');
-    }
+ratioSelect.addEventListener("change", () => {
+  if (ratioSelect.value !== "") {
+    updateLastTouched("ratio");
+  }
 });
 
 // Recipe Steps functionality
-document.getElementById('add-step').addEventListener('click', addRecipeStep);
+document.getElementById("add-step").addEventListener("click", addRecipeStep);
 
 function addRecipeStep() {
-    const stepsContainer = document.getElementById('recipe-steps');
-    const stepElement = document.createElement('div');
-    stepElement.className = 'recipe-step';
-    
-    // Water amount input
-    const waterInput = document.createElement('input');
-    waterInput.type = 'number';
-    waterInput.min = '0';
-    waterInput.step = '1';
-    waterInput.inputMode = 'numeric';
-    waterInput.pattern = '[0-9]*';
-    waterInput.placeholder = 'Water (g)';
-    
-    // Step description input
-    const descriptionInput = document.createElement('input');
-    descriptionInput.type = 'text';
-    descriptionInput.placeholder = 'Step description';
-    
-    // Time input container
-    const timeContainer = document.createElement('div');
-    timeContainer.className = 'time-container';
-    
-    // Minutes input
-    const minutesInput = document.createElement('input');
-    minutesInput.type = 'number';
-    minutesInput.className = 'time-input minutes';
-    minutesInput.min = '0';
-    minutesInput.max = '59';
-    minutesInput.step = '1';
-    minutesInput.inputMode = 'numeric';
-    minutesInput.pattern = '[0-9]*';
-    minutesInput.placeholder = 'MM';
-    
-    // Time separator
-    const timeSeparator = document.createElement('span');
-    timeSeparator.textContent = ':';
-    timeSeparator.className = 'time-separator';
-    
-    // Seconds input
-    const secondsInput = document.createElement('input');
-    secondsInput.type = 'number';
-    secondsInput.className = 'time-input seconds';
-    secondsInput.min = '0';
-    secondsInput.max = '59';
-    secondsInput.step = '1';
-    secondsInput.inputMode = 'numeric';
-    secondsInput.pattern = '[0-9]*';
-    secondsInput.placeholder = 'SS';
-    
-    // Add time components to container
-    timeContainer.appendChild(minutesInput);
-    timeContainer.appendChild(timeSeparator);
-    timeContainer.appendChild(secondsInput);
-    
-    // Remove button
-    const removeButton = document.createElement('button');
-    removeButton.className = 'remove-step';
-    removeButton.textContent = '×';
-    removeButton.addEventListener('click', () => stepElement.remove());
-    
-    // Add all elements to the step
-    stepElement.appendChild(waterInput);
-    stepElement.appendChild(descriptionInput);
-    stepElement.appendChild(timeContainer);
-    stepElement.appendChild(removeButton);
-    
-    stepsContainer.appendChild(stepElement);
+  const stepsContainer = document.getElementById("recipe-steps");
+  const stepElement = document.createElement("div");
+  stepElement.className = "recipe-step";
+
+  // Water amount input
+  const waterInput = document.createElement("input");
+  waterInput.type = "number";
+  waterInput.min = "0";
+  waterInput.step = "1";
+  waterInput.inputMode = "numeric";
+  waterInput.pattern = "[0-9]*";
+  waterInput.placeholder = "Water (g)";
+
+  // Step description input
+  const descriptionInput = document.createElement("input");
+  descriptionInput.type = "text";
+  descriptionInput.placeholder = "Step description";
+
+  // Time input container
+  const timeContainer = document.createElement("div");
+  timeContainer.className = "time-container";
+
+  // Minutes input
+  const minutesInput = document.createElement("input");
+  minutesInput.type = "number";
+  minutesInput.className = "time-input minutes";
+  minutesInput.min = "0";
+  minutesInput.max = "59";
+  minutesInput.step = "1";
+  minutesInput.inputMode = "numeric";
+  minutesInput.pattern = "[0-9]*";
+  minutesInput.placeholder = "MM";
+
+  // Time separator
+  const timeSeparator = document.createElement("span");
+  timeSeparator.textContent = ":";
+  timeSeparator.className = "time-separator";
+
+  // Seconds input
+  const secondsInput = document.createElement("input");
+  secondsInput.type = "number";
+  secondsInput.className = "time-input seconds";
+  secondsInput.min = "0";
+  secondsInput.max = "59";
+  secondsInput.step = "1";
+  secondsInput.inputMode = "numeric";
+  secondsInput.pattern = "[0-9]*";
+  secondsInput.placeholder = "SS";
+
+  // Add time components to container
+  timeContainer.appendChild(minutesInput);
+  timeContainer.appendChild(timeSeparator);
+  timeContainer.appendChild(secondsInput);
+
+  // Remove button
+  const removeButton = document.createElement("button");
+  removeButton.className = "remove-step";
+  removeButton.textContent = "×";
+  removeButton.addEventListener("click", () => stepElement.remove());
+
+  // Add all elements to the step
+  stepElement.appendChild(waterInput);
+  stepElement.appendChild(descriptionInput);
+  stepElement.appendChild(timeContainer);
+  stepElement.appendChild(removeButton);
+
+  stepsContainer.appendChild(stepElement);
 }
 
 // Timer functionality
@@ -171,83 +171,88 @@ let currentStepIndex = 0;
 let timerInterval;
 
 function getTimeInSeconds(minutes, seconds) {
-    return (parseInt(minutes || '0') * 60) + parseInt(seconds || '0');
+  return parseInt(minutes || "0") * 60 + parseInt(seconds || "0");
 }
 
 function formatTime(totalSeconds) {
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(
+    2,
+    "0"
+  )}`;
 }
 
 function startTimers() {
-    const startButton = document.getElementById('start-timer');
-    const currentTimerDisplay = document.getElementById('current-timer');
-    const steps = document.querySelectorAll('.recipe-step');
-    
-    if (steps.length === 0) {
-        alert('Add at least one step before starting the timer');
-        return;
+  const startButton = document.getElementById("start-timer");
+  const currentTimerDisplay = document.getElementById("current-timer");
+  const steps = document.querySelectorAll(".recipe-step");
+
+  if (steps.length === 0) {
+    alert("Add at least one step before starting the timer");
+    return;
+  }
+
+  if (timerRunning) {
+    return;
+  }
+
+  timerRunning = true;
+  currentStepIndex = 0;
+  startButton.disabled = true;
+
+  function startNextTimer() {
+    if (currentStepIndex >= steps.length) {
+      // All timers completed
+      timerRunning = false;
+      startButton.disabled = false;
+      currentTimerDisplay.textContent = "Complete!";
+      return;
     }
-    
-    if (timerRunning) {
-        return;
+
+    // Reset previous step styling if exists
+    if (currentStepIndex > 0) {
+      steps[currentStepIndex - 1].classList.remove("active");
+      steps[currentStepIndex - 1].classList.add("completed");
     }
-    
-    timerRunning = true;
-    currentStepIndex = 0;
-    startButton.disabled = true;
-    
-    function startNextTimer() {
-        if (currentStepIndex >= steps.length) {
-            // All timers completed
-            timerRunning = false;
-            startButton.disabled = false;
-            currentTimerDisplay.textContent = 'Complete!';
-            return;
-        }
-        
-        // Reset previous step styling if exists
-        if (currentStepIndex > 0) {
-            steps[currentStepIndex - 1].classList.remove('active');
-            steps[currentStepIndex - 1].classList.add('completed');
-        }
-        
-        const currentStep = steps[currentStepIndex];
-        currentStep.classList.add('active');
-        
-        const minutesInput = currentStep.querySelector('.minutes');
-        const secondsInput = currentStep.querySelector('.seconds');
-        const stepDescription = currentStep.querySelector('input[type="text"]').value;
-        
-        let timeLeft = getTimeInSeconds(
-            minutesInput.value,
-            secondsInput.value
-        );
-        
-        if (timeLeft <= 0) {
-            currentStepIndex++;
-            startNextTimer();
-            return;
-        }
-        
-        currentTimerDisplay.textContent = `${stepDescription}: ${formatTime(timeLeft)}`;
-        
+
+    const currentStep = steps[currentStepIndex];
+    currentStep.classList.add("active");
+
+    const minutesInput = currentStep.querySelector(".minutes");
+    const secondsInput = currentStep.querySelector(".seconds");
+    const stepDescription =
+      currentStep.querySelector('input[type="text"]').value;
+
+    let timeLeft = getTimeInSeconds(minutesInput.value, secondsInput.value);
+
+    if (timeLeft <= 0) {
+      currentStepIndex++;
+      startNextTimer();
+      return;
+    }
+
+    currentTimerDisplay.textContent = `${stepDescription}: ${formatTime(
+      timeLeft
+    )}`;
+
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      currentTimerDisplay.textContent = `${stepDescription}: ${formatTime(
+        timeLeft
+      )}`;
+
+      if (timeLeft <= 0) {
         clearInterval(timerInterval);
-        timerInterval = setInterval(() => {
-            timeLeft--;
-            currentTimerDisplay.textContent = `${stepDescription}: ${formatTime(timeLeft)}`;
-            
-            if (timeLeft <= 0) {
-                clearInterval(timerInterval);
-                currentStepIndex++;
-                startNextTimer();
-            }
-        }, 1000);
-    }
-    
-    startNextTimer();
+        currentStepIndex++;
+        startNextTimer();
+      }
+    }, 1000);
+  }
+
+  startNextTimer();
 }
 
 // Add event listener for start button
-document.getElementById('start-timer').addEventListener('click', startTimers);
+document.getElementById("start-timer").addEventListener("click", startTimers);
