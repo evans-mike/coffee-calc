@@ -671,6 +671,128 @@ function initTheme() {
   });
 }
 
+
+
+// Timer State Management
+const timerState = {
+  isRunning: false,
+  currentTime: 0,
+  currentStep: 0,
+  steps: [], // Will contain {duration: number, description: string}
+  intervalId: null
+};
+
+// Timer Control Elements
+const playPauseBtn = document.getElementById('play-pause');
+const prevStepBtn = document.getElementById('prev-step');
+const nextStepBtn = document.getElementById('next-step');
+const resetTimerBtn = document.getElementById('reset-timer');
+const currentTimerDisplay = document.getElementById('current-timer');
+const stepIndicator = document.getElementById('step-indicator');
+
+// Format time as MM:SS
+function formatTime(seconds) {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+}
+
+// Update step indicator
+function updateStepIndicator() {
+  if (timerState.steps.length === 0) {
+      stepIndicator.textContent = 'No steps added';
+      return;
+  }
+  stepIndicator.textContent = `Step ${timerState.currentStep + 1} of ${timerState.steps.length}`;
+}
+
+// Toggle play/pause
+function togglePlayPause() {
+  if (timerState.steps.length === 0) return;
+
+  if (timerState.isRunning) {
+      // Pause
+      clearInterval(timerState.intervalId);
+      playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
+  } else {
+      // Play
+      timerState.intervalId = setInterval(() => {
+          if (timerState.currentTime > 0) {
+              timerState.currentTime--;
+              currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+          } else {
+              // Auto-advance to next step if available
+              if (timerState.currentStep < timerState.steps.length - 1) {
+                  nextStep();
+              } else {
+                  clearInterval(timerState.intervalId);
+                  timerState.isRunning = false;
+                  playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
+              }
+          }
+      }, 1000);
+      playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-pause"></i>';
+  }
+  timerState.isRunning = !timerState.isRunning;
+}
+
+// Move to previous step
+function previousStep() {
+  if (timerState.currentStep > 0) {
+      timerState.currentStep--;
+      timerState.currentTime = timerState.steps[timerState.currentStep].duration;
+      currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+      updateStepIndicator();
+      updateStepButtons();
+  }
+}
+
+// Move to next step
+function nextStep() {
+  if (timerState.currentStep < timerState.steps.length - 1) {
+      timerState.currentStep++;
+      timerState.currentTime = timerState.steps[timerState.currentStep].duration;
+      currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+      updateStepIndicator();
+      updateStepButtons();
+  }
+}
+
+// Reset timer
+function resetTimer() {
+  clearInterval(timerState.intervalId);
+  timerState.isRunning = false;
+  timerState.currentStep = 0;
+  timerState.currentTime = timerState.steps[0]?.duration || 0;
+  currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+  playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
+  updateStepIndicator();
+  updateStepButtons();
+}
+
+// Update step navigation buttons
+function updateStepButtons() {
+  prevStepBtn.disabled = timerState.currentStep === 0;
+  nextStepBtn.disabled = timerState.currentStep === timerState.steps.length - 1;
+}
+
+// Event Listeners
+playPauseBtn.addEventListener('click', togglePlayPause);
+prevStepBtn.addEventListener('click', previousStep);
+nextStepBtn.addEventListener('click', nextStep);
+resetTimerBtn.addEventListener('click', resetTimer);
+
+// When adding a new recipe step, update the timer state
+function addStepToTimer(duration, description) {
+  timerState.steps.push({ duration, description });
+  if (timerState.steps.length === 1) {
+      timerState.currentTime = duration;
+      currentTimerDisplay.textContent = formatTime(duration);
+  }
+  updateStepIndicator();
+  updateStepButtons();
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   populateRatioOptions(); // Add this line
   loadSharedRecipe();
