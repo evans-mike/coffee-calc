@@ -786,14 +786,15 @@ function addStepToTimer(duration, description) {
   updateStepButtons();
 }
 
-window.addEventListener("DOMContentLoaded", () => {
-  populateRatioOptions(); // Add this line
+// Update your initialization (around line 796-807)
+document.addEventListener("DOMContentLoaded", () => {  // Changed from window to document
+  populateRatioOptions();
   loadSharedRecipe();
   initTheme();
 
   // Add share button event listener
   const shareBtn = document.getElementById("shareBtn");
   if (shareBtn) {
-    shareBtn.addEventListener("click", shareRecipe);
+      shareBtn.addEventListener("click", shareRecipe);
   }
 });
