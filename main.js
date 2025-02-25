@@ -311,13 +311,6 @@ function resetTimer() {
   });
 }
 
-// Add event listener for start button
-document.getElementById("start-timer").addEventListener("click", startTimers);
-document.getElementById("pause-timer").addEventListener("click", pauseTimer);
-document.getElementById("reset-timer").addEventListener("click", resetTimer);
-
-// Add these functions after your existing code
-
 // Function to generate markdown for the recipe
 function generateRecipeMarkdown() {
   const water = waterInput.value; // Use the global reference
