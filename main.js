@@ -1,16 +1,39 @@
 // Global state variables
 let lastUpdated = ["ratio"]; // Track the order of updates
-let timerRunning = false;
-let currentStepIndex = 0;
-let timerInterval;
-let isPaused = false;
-let currentTimeLeft = 0;
-let currentStepDescription = "";
+
+// Timer State Management
+const timerState = {
+  isRunning: false,
+  currentTime: 0,
+  currentStep: 0,
+  steps: [], // Will contain {duration: number, description: string}
+  intervalId: null,
+};
 
 // Get DOM elements
 const waterInput = document.getElementById("water");
 const coffeeInput = document.getElementById("coffee");
 const ratioSelect = document.getElementById("ratio");
+
+// Timer Control Elements
+const playPauseBtn = document.getElementById("play-pause");
+const prevStepBtn = document.getElementById("prev-step");
+const nextStepBtn = document.getElementById("next-step");
+const resetTimerBtn = document.getElementById("reset-timer");
+const currentTimerDisplay = document.getElementById("current-timer");
+const stepIndicator = document.getElementById("step-indicator");
+
+// Debug logging function
+function logTimerState(action) {
+  console.log(`Timer Action: ${action}`);
+  console.log("Timer State:", {
+    isRunning: timerState.isRunning,
+    currentTime: timerState.currentTime,
+    currentStep: timerState.currentStep,
+    totalSteps: timerState.steps.length,
+    steps: timerState.steps,
+  });
+}
 
 // Populate ratio options (1:1 to 100:1) with 16:1 as default
 function populateRatioOptions() {
@@ -29,12 +52,10 @@ function populateRatioOptions() {
   }
 }
 
+// Calculator functions
 function updateLastTouched(inputType) {
-  // Remove the input type if it's already in the array
   lastUpdated = lastUpdated.filter((item) => item !== inputType);
-  // Add it to the end (most recent)
   lastUpdated.push(inputType);
-  // Keep only the last two updates
   if (lastUpdated.length > 2) {
     lastUpdated.shift();
   }
@@ -46,10 +67,8 @@ function calculateBasedOnLastUpdates() {
   const coffee = parseFloat(coffeeInput.value);
   const ratio = parseInt(ratioSelect.value);
 
-  // Don't calculate until we have at least two values
   if (lastUpdated.length < 2) return;
 
-  // The value to calculate is the one NOT in lastUpdated
   const toCalculate = ["water", "coffee", "ratio"].find(
     (item) => !lastUpdated.includes(item)
   );
@@ -57,14 +76,12 @@ function calculateBasedOnLastUpdates() {
   switch (toCalculate) {
     case "water":
       if (!isNaN(coffee) && !isNaN(ratio)) {
-        const calculatedWater = coffee * ratio;
-        waterInput.value = calculatedWater.toFixed(0);
+        waterInput.value = (coffee * ratio).toFixed(0);
       }
       break;
     case "coffee":
       if (!isNaN(water) && !isNaN(ratio)) {
-        const calculatedCoffee = water / ratio;
-        coffeeInput.value = calculatedCoffee.toFixed(1);
+        coffeeInput.value = (water / ratio).toFixed(1);
       }
       break;
     case "ratio":
@@ -78,29 +95,134 @@ function calculateBasedOnLastUpdates() {
   }
 }
 
-// Add event listeners for calculator
-waterInput.addEventListener("blur", () => {
-  if (waterInput.value !== "") {
-    updateLastTouched("water");
+// Timer functions
+function formatTime(seconds) {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes.toString().padStart(2, "0")}:${remainingSeconds
+    .toString()
+    .padStart(2, "0")}`;
+}
+
+function updateStepIndicator() {
+  if (timerState.steps.length === 0) {
+    stepIndicator.textContent = "No steps added";
+    return;
   }
-});
+  stepIndicator.textContent = `Step ${timerState.currentStep + 1} of ${
+    timerState.steps.length
+  }`;
+}
 
-coffeeInput.addEventListener("blur", () => {
-  if (coffeeInput.value !== "") {
-    updateLastTouched("coffee");
+function togglePlayPause() {
+  console.log("togglePlayPause called");
+
+  if (timerState.steps.length === 0) {
+    console.log("No steps available to start timer");
+    return;
   }
-});
 
-ratioSelect.addEventListener("change", () => {
-  if (ratioSelect.value !== "") {
-    updateLastTouched("ratio");
+  if (timerState.isRunning) {
+    console.log("Pausing timer");
+    clearInterval(timerState.intervalId);
+    playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
+  } else {
+    console.log("Starting timer");
+    if (!timerState.currentTime && timerState.steps[timerState.currentStep]) {
+      timerState.currentTime =
+        timerState.steps[timerState.currentStep].duration;
+    }
+    timerState.intervalId = setInterval(() => {
+      if (timerState.currentTime > 0) {
+        timerState.currentTime--;
+        currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+        console.log("Timer tick:", timerState.currentTime);
+      } else {
+        console.log("Step completed");
+        if (timerState.currentStep < timerState.steps.length - 1) {
+          nextStep();
+        } else {
+          console.log("All steps completed");
+          clearInterval(timerState.intervalId);
+          timerState.isRunning = false;
+          playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
+        }
+      }
+    }, 1000);
+    playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-pause"></i>';
   }
-});
+  timerState.isRunning = !timerState.isRunning;
+  logTimerState("Toggle Play/Pause");
+}
 
-// Recipe Steps functionality
-document.getElementById("add-step").addEventListener("click", addRecipeStep);
+function updateStepButtons() {
+  console.log("Updating step buttons");
+  prevStepBtn.disabled = timerState.currentStep === 0;
+  nextStepBtn.disabled = timerState.currentStep === timerState.steps.length - 1;
+}
 
-function addRecipeStep() {
+function previousStep() {
+  console.log("Previous step called");
+  if (timerState.currentStep > 0) {
+    timerState.currentStep--;
+    const step = timerState.steps[timerState.currentStep];
+    timerState.currentTime = step.duration;
+    currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+    console.log("Moved to previous step:", {
+      currentStep: timerState.currentStep,
+      duration: step.duration,
+      description: step.description,
+    });
+    updateStepIndicator();
+    updateStepButtons();
+  }
+}
+
+function nextStep() {
+  console.log("Next step called");
+  if (timerState.currentStep < timerState.steps.length - 1) {
+    timerState.currentStep++;
+    const step = timerState.steps[timerState.currentStep];
+    timerState.currentTime = step.duration;
+    currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+    console.log("Moved to next step:", {
+      currentStep: timerState.currentStep,
+      duration: step.duration,
+      description: step.description,
+    });
+    updateStepIndicator();
+    updateStepButtons();
+  }
+}
+
+function resetTimer() {
+  console.log("Reset timer called");
+  clearInterval(timerState.intervalId);
+  timerState.isRunning = false;
+  timerState.currentStep = 0;
+  if (timerState.steps.length > 0) {
+    timerState.currentTime = timerState.steps[0].duration;
+    currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+  } else {
+    timerState.currentTime = 0;
+    currentTimerDisplay.textContent = "00:00";
+  }
+  playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
+  updateStepIndicator();
+  updateStepButtons();
+  logTimerState("Reset Timer");
+}
+
+function parseStepDuration(minutesInput, secondsInput) {
+  const minutes = parseInt(minutesInput.value || "0");
+  const seconds = parseInt(secondsInput.value || "0");
+  const totalSeconds = minutes * 60 + seconds;
+  console.log("Parsed step duration:", { minutes, seconds, totalSeconds });
+  return totalSeconds;
+}
+
+// Recipe step functions
+function addRecipeStep(initialValues = null) {
   const stepsContainer = document.getElementById("recipe-steps");
   const stepElement = document.createElement("div");
   stepElement.className = "recipe-step";
@@ -113,13 +235,15 @@ function addRecipeStep() {
   waterInput.inputMode = "numeric";
   waterInput.pattern = "[0-9]*";
   waterInput.placeholder = "Water (g)";
+  if (initialValues) waterInput.value = initialValues.water;
 
   // Step description input
   const descriptionInput = document.createElement("input");
   descriptionInput.type = "text";
   descriptionInput.placeholder = "Step description";
+  if (initialValues) descriptionInput.value = initialValues.description;
 
-  // Time input container
+  // Time container
   const timeContainer = document.createElement("div");
   timeContainer.className = "time-container";
 
@@ -133,6 +257,7 @@ function addRecipeStep() {
   minutesInput.inputMode = "numeric";
   minutesInput.pattern = "[0-9]*";
   minutesInput.placeholder = "MM";
+  if (initialValues) minutesInput.value = initialValues.minutes;
 
   // Time separator
   const timeSeparator = document.createElement("span");
@@ -149,8 +274,32 @@ function addRecipeStep() {
   secondsInput.inputMode = "numeric";
   secondsInput.pattern = "[0-9]*";
   secondsInput.placeholder = "SS";
+  if (initialValues) secondsInput.value = initialValues.seconds;
 
-  // Add time components to container
+  // Add time change listeners
+  const updateTimerState = () => {
+    const duration = parseStepDuration(minutesInput, secondsInput);
+    const stepIndex = Array.from(stepsContainer.children).indexOf(stepElement);
+    if (stepIndex !== -1 && stepIndex < timerState.steps.length) {
+      timerState.steps[stepIndex].duration = duration;
+      if (stepIndex === timerState.currentStep && !timerState.isRunning) {
+        timerState.currentTime = duration;
+        currentTimerDisplay.textContent = formatTime(duration);
+      }
+      console.log("Updated step duration:", { stepIndex, duration });
+    }
+  };
+
+  minutesInput.addEventListener("change", updateTimerState);
+  secondsInput.addEventListener("change", updateTimerState);
+  descriptionInput.addEventListener("change", () => {
+    const stepIndex = Array.from(stepsContainer.children).indexOf(stepElement);
+    if (stepIndex !== -1 && stepIndex < timerState.steps.length) {
+      timerState.steps[stepIndex].description = descriptionInput.value;
+    }
+  });
+
+  // Assemble time container
   timeContainer.appendChild(minutesInput);
   timeContainer.appendChild(timeSeparator);
   timeContainer.appendChild(secondsInput);
@@ -158,164 +307,105 @@ function addRecipeStep() {
   // Remove button
   const removeButton = document.createElement("button");
   removeButton.className = "remove-step";
-  removeButton.textContent = "×";
-  removeButton.addEventListener("click", () => stepElement.remove());
+  removeButton.innerHTML = '<i class="fa-solid fa-times"></i>';
+  removeButton.addEventListener("click", () => {
+    const stepIndex = Array.from(stepsContainer.children).indexOf(stepElement);
+    timerState.steps.splice(stepIndex, 1);
+    stepElement.remove();
+    if (timerState.currentStep >= stepIndex) {
+      timerState.currentStep = Math.max(0, timerState.currentStep - 1);
+    }
+    if (timerState.steps.length === 0) {
+      timerState.currentTime = 0;
+      currentTimerDisplay.textContent = "00:00";
+    } else if (!timerState.isRunning) {
+      timerState.currentTime =
+        timerState.steps[timerState.currentStep].duration;
+      currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+    }
+    updateStepIndicator();
+    updateStepButtons();
+  });
 
-  // Add all elements to the step
+  // Assemble step
   stepElement.appendChild(waterInput);
   stepElement.appendChild(descriptionInput);
   stepElement.appendChild(timeContainer);
   stepElement.appendChild(removeButton);
 
   stepsContainer.appendChild(stepElement);
-}
 
-function getTimeInSeconds(minutes, seconds) {
-  return parseInt(minutes || "0") * 60 + parseInt(seconds || "0");
-}
+  // Add to timer state
+  const duration = parseStepDuration(minutesInput, secondsInput);
+  const description =
+    descriptionInput.value || `Step ${timerState.steps.length + 1}`;
+  timerState.steps.push({ duration, description });
 
-function formatTime(totalSeconds) {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(
-    2,
-    "0"
-  )}`;
-}
-
-function startTimers() {
-  const startButton = document.getElementById("start-timer");
-  const pauseButton = document.getElementById("pause-timer");
-  const resetButton = document.getElementById("reset-timer");
-  const currentTimerDisplay = document.getElementById("current-timer");
-  const steps = document.querySelectorAll(".recipe-step");
-
-  if (steps.length === 0) {
-    alert("Add at least one step before starting the timer");
-    return;
+  if (timerState.steps.length === 1) {
+    timerState.currentTime = duration;
+    currentTimerDisplay.textContent = formatTime(duration);
   }
 
-  if (timerRunning && !isPaused) {
-    return;
-  }
-
-  if (isPaused) {
-    // Resume from paused state
-    isPaused = false;
-    pauseButton.textContent = "Pause Timer";
-    startButton.disabled = true;
-  } else {
-    // Start fresh
-    timerRunning = true;
-    currentStepIndex = 0;
-    startButton.disabled = true;
-    pauseButton.disabled = false;
-    resetButton.disabled = false;
-  }
-
-  function startNextTimer() {
-    if (currentStepIndex >= steps.length) {
-      // All timers completed
-      timerRunning = false;
-      isPaused = false;
-      startButton.disabled = false;
-      pauseButton.disabled = true;
-      resetButton.disabled = true;
-      currentTimerDisplay.textContent = "Complete!";
-      return;
-    }
-
-    // Reset previous step styling if exists
-    if (currentStepIndex > 0) {
-      steps[currentStepIndex - 1].classList.remove("active");
-      steps[currentStepIndex - 1].classList.add("completed");
-    }
-
-    const currentStep = steps[currentStepIndex];
-    currentStep.classList.add("active");
-
-    const minutesInput = currentStep.querySelector(".minutes");
-    const secondsInput = currentStep.querySelector(".seconds");
-    const stepDescription =
-      currentStep.querySelector('input[type="text"]').value;
-
-    currentTimeLeft = getTimeInSeconds(
-      minutesInput.value || "0",
-      secondsInput.value || "0"
-    );
-    currentStepDescription = stepDescription;
-
-    if (currentTimeLeft <= 0) {
-      currentStepIndex++;
-      startNextTimer();
-      return;
-    }
-
-    currentTimerDisplay.textContent = `${stepDescription}: ${formatTime(
-      currentTimeLeft
-    )}`;
-
-    clearInterval(timerInterval);
-    timerInterval = setInterval(() => {
-      if (!isPaused) {
-        currentTimeLeft--;
-        currentTimerDisplay.textContent = `${stepDescription}: ${formatTime(
-          currentTimeLeft
-        )}`;
-
-        if (currentTimeLeft <= 0) {
-          clearInterval(timerInterval);
-          currentStepIndex++;
-          startNextTimer();
-        }
-      }
-    }, 1000);
-  }
-
-  startNextTimer();
+  updateStepIndicator();
+  updateStepButtons();
+  logTimerState("Add Step");
 }
 
-// Add these new functions
-function pauseTimer() {
-  const pauseButton = document.getElementById("pause-timer");
-  const startButton = document.getElementById("start-timer");
+// Theme handling
+function initTheme() {
+  const toggleSwitch = document.getElementById("theme-toggle");
+  const savedTheme = localStorage.getItem("theme");
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-  if (timerRunning) {
-    isPaused = !isPaused;
-    pauseButton.textContent = isPaused ? "Resume Timer" : "Pause Timer";
-    startButton.disabled = !isPaused;
+  if (savedTheme) {
+    document.documentElement.setAttribute("data-theme", savedTheme);
+    toggleSwitch.checked = savedTheme === "dark";
+  } else if (prefersDark) {
+    document.documentElement.setAttribute("data-theme", "dark");
+    toggleSwitch.checked = true;
   }
-}
 
-function resetTimer() {
-  clearInterval(timerInterval);
-  timerRunning = false;
-  isPaused = false;
-  currentStepIndex = 0;
-  currentTimeLeft = 0;
-
-  const startButton = document.getElementById("start-timer");
-  const pauseButton = document.getElementById("pause-timer");
-  const resetButton = document.getElementById("reset-timer");
-  const currentTimerDisplay = document.getElementById("current-timer");
-  const steps = document.querySelectorAll(".recipe-step");
-
-  startButton.disabled = false;
-  pauseButton.disabled = true;
-  resetButton.disabled = true;
-  currentTimerDisplay.textContent = "";
-
-  // Clear step styling
-  steps.forEach((step) => {
-    step.classList.remove("active", "completed");
+  toggleSwitch.addEventListener("change", (e) => {
+    const theme = e.target.checked ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
   });
 }
 
-// Function to generate markdown for the recipe
+// URL sharing and loading
+function buildUrlWithValues() {
+  const recipeData = {
+    calculator: {
+      water: waterInput.value,
+      coffee: coffeeInput.value,
+      ratio: ratioSelect.value,
+    },
+    metadata: {
+      grindSize: document.getElementById("grind-size").value,
+      waterTemp: document.getElementById("water-temp").value,
+      notes: document.getElementById("additional-notes").value,
+    },
+    steps: Array.from(document.querySelectorAll(".recipe-step")).map(
+      (step) => ({
+        water: step.querySelector('input[type="number"]').value,
+        description: step.querySelector('input[type="text"]').value,
+        minutes: step.querySelector(".minutes").value || "0",
+        seconds: step.querySelector(".seconds").value || "0",
+      })
+    ),
+  };
+
+  const jsonString = JSON.stringify(recipeData);
+  const compressed = LZString.compressToEncodedURIComponent(jsonString);
+  return (
+    window.location.origin + window.location.pathname + "?data=" + compressed
+  );
+}
+
 function generateRecipeMarkdown() {
-  const water = waterInput.value; // Use the global reference
-  const coffee = coffeeInput.value; // Use the global reference
-  const ratio = ratioSelect.value; // Use the global reference
+  const water = waterInput.value;
+  const coffee = coffeeInput.value;
+  const ratio = ratioSelect.value;
   const grindSize = document.getElementById("grind-size").value;
   const waterTemp = document.getElementById("water-temp").value;
   const notes = document.getElementById("additional-notes").value;
@@ -349,7 +439,6 @@ function generateRecipeMarkdown() {
   }
 
   markdown += `\nGenerated with Coffee Calc`;
-
   return markdown;
 }
 
@@ -360,20 +449,13 @@ function shareRecipe() {
   // If no coffee or water inputs, just share the base URL
   if (!hasWater && !hasCoffee) {
     const baseUrl = window.location.origin + window.location.pathname;
-
-    // Check if Web Share API is available AND we're in a secure context
     if (navigator.share && window.isSecureContext) {
-      console.log("Attempting to use Web Share API with base URL...");
-
-      const shareData = {
-        title: "Coffee Calc",
-        text: "Check out this coffee ratio calculator!",
-        url: baseUrl,
-      };
-
       navigator
-        .share(shareData)
-        .then(() => console.log("Successfully shared base URL"))
+        .share({
+          title: "Coffee Calc",
+          text: "Check out this coffee ratio calculator!",
+          url: baseUrl,
+        })
         .catch((error) => {
           console.log("Share failed:", error);
           fallbackToClipboard(
@@ -387,45 +469,27 @@ function shareRecipe() {
     return;
   }
 
-  // Continue with normal share functionality if we have inputs
   const shareableUrl = buildUrlWithValues();
   const recipeText = generateRecipeMarkdown();
 
-  console.log("Web Share API available:", !!navigator.share);
-  console.log("Running on secure context:", window.isSecureContext);
-
   if (navigator.share && window.isSecureContext) {
-    console.log("Attempting to use Web Share API...");
-
-    const shareData = {
-      title: "Coffee Recipe",
-      text: recipeText,
-      url: shareableUrl,
-    };
-
-    console.log("Share data:", shareData);
-
     navigator
-      .share(shareData)
-      .then(() => {
-        console.log("Successfully shared");
+      .share({
+        title: "Coffee Recipe",
+        text: recipeText,
+        url: shareableUrl,
       })
       .catch((error) => {
         console.log("Share failed:", error);
         fallbackToClipboard(shareableUrl, recipeText);
       });
   } else {
-    console.log("Web Share API not available:");
-    console.log("- navigator.share exists:", !!navigator.share);
-    console.log("- secure context:", window.isSecureContext);
-
     fallbackToClipboard(shareableUrl, recipeText);
   }
 }
 
 function fallbackToClipboard(url, markdown) {
   const textToCopy = `${markdown}\n\nRecipe URL: ${url}`;
-
   navigator.clipboard
     .writeText(textToCopy)
     .then(() => {
@@ -436,35 +500,6 @@ function fallbackToClipboard(url, markdown) {
       console.error("Clipboard error:", err);
       alert("Error copying recipe: " + err);
     });
-}
-
-function buildUrlWithValues() {
-  const recipeData = {
-    calculator: {
-      water: waterInput.value,
-      coffee: coffeeInput.value,
-      ratio: ratioSelect.value,
-    },
-    metadata: {
-      grindSize: document.getElementById("grind-size").value,
-      waterTemp: document.getElementById("water-temp").value,
-      notes: document.getElementById("additional-notes").value,
-    },
-    steps: Array.from(document.querySelectorAll(".recipe-step")).map(
-      (step) => ({
-        water: step.querySelector('input[type="number"]').value,
-        description: step.querySelector('input[type="text"]').value,
-        minutes: step.querySelector(".minutes").value,
-        seconds: step.querySelector(".seconds").value,
-      })
-    ),
-  };
-
-  const jsonString = JSON.stringify(recipeData);
-  const compressed = LZString.compressToEncodedURIComponent(jsonString);
-  return (
-    window.location.origin + window.location.pathname + "?data=" + compressed
-  );
 }
 
 function loadSharedRecipe() {
@@ -478,7 +513,7 @@ function loadSharedRecipe() {
       LZString.decompressFromEncodedURIComponent(compressedData);
     const recipeData = JSON.parse(jsonString);
 
-    // Set main calculator values
+    // Set calculator values
     if (recipeData.calculator) {
       if (recipeData.calculator.water)
         waterInput.value = recipeData.calculator.water;
@@ -487,6 +522,8 @@ function loadSharedRecipe() {
       if (recipeData.calculator.ratio)
         ratioSelect.value = recipeData.calculator.ratio;
     }
+
+    // Set metadata values
     if (recipeData.metadata) {
       if (recipeData.metadata.grindSize)
         document.getElementById("grind-size").value =
@@ -514,287 +551,44 @@ function loadSharedRecipe() {
   }
 }
 
-// Modify your existing addRecipeStep function to accept initial values
-function addRecipeStep(initialValues = null) {
-  const stepsContainer = document.getElementById("recipe-steps");
-  const stepElement = document.createElement("div");
-  stepElement.className = "recipe-step";
-
-  // Water amount input
-  const waterInput = document.createElement("input");
-  waterInput.type = "number";
-  waterInput.min = "0";
-  waterInput.step = "1";
-  waterInput.inputMode = "numeric";
-  waterInput.pattern = "[0-9]*";
-  waterInput.placeholder = "Water (g)";
-  if (initialValues) waterInput.value = initialValues.water;
-
-  // Step description input
-  const descriptionInput = document.createElement("input");
-  descriptionInput.type = "text";
-  descriptionInput.placeholder = "Step description";
-  if (initialValues) descriptionInput.value = initialValues.description;
-
-  // Time input container
-  const timeContainer = document.createElement("div");
-  timeContainer.className = "time-container";
-
-  // Minutes input
-  const minutesInput = document.createElement("input");
-  minutesInput.type = "number";
-  minutesInput.className = "time-input minutes";
-  minutesInput.min = "0";
-  minutesInput.max = "59";
-  minutesInput.step = "1";
-  minutesInput.inputMode = "numeric";
-  minutesInput.pattern = "[0-9]*";
-  minutesInput.placeholder = "MM";
-  if (initialValues) minutesInput.value = initialValues.minutes;
-
-  // Time separator
-  const timeSeparator = document.createElement("span");
-  timeSeparator.textContent = ":";
-  timeSeparator.className = "time-separator";
-
-  // Seconds input
-  const secondsInput = document.createElement("input");
-  secondsInput.type = "number";
-  secondsInput.className = "time-input seconds";
-  secondsInput.min = "0";
-  secondsInput.max = "59";
-  secondsInput.step = "1";
-  secondsInput.inputMode = "numeric";
-  secondsInput.pattern = "[0-9]*";
-  secondsInput.placeholder = "SS";
-  if (initialValues) secondsInput.value = initialValues.seconds;
-
-  // Add time components to container
-  timeContainer.appendChild(minutesInput);
-  timeContainer.appendChild(timeSeparator);
-  timeContainer.appendChild(secondsInput);
-
-  // Remove button
-  const removeButton = document.createElement("button");
-  removeButton.className = "remove-step";
-  removeButton.textContent = "×";
-  removeButton.addEventListener("click", () => stepElement.remove());
-
-  // Add all elements to the step
-  stepElement.appendChild(waterInput);
-  stepElement.appendChild(descriptionInput);
-  stepElement.appendChild(timeContainer);
-  stepElement.appendChild(removeButton);
-
-  stepsContainer.appendChild(stepElement);
-}
-
-// Update the reset function
-function resetAllInputs() {
-  // Reset calculator inputs
-  waterInput.value = "";
-  coffeeInput.value = "";
-  ratioSelect.value = "16"; // Default ratio
-
-  // Reset metadata inputs
-  document.getElementById("grind-size").value = "650";
-  document.getElementById("water-temp").value = "200";
-  document.getElementById("additional-notes").value = "";
-
-  // Clear recipe steps
-  document.getElementById("recipe-steps").innerHTML = "";
-
-  // Reset timer
-  const currentTimerDisplay = document.getElementById("current-timer");
-  if (currentTimerDisplay) {
-    currentTimerDisplay.textContent = "";
-  }
-
-  // Reset timer buttons
-  const startButton = document.getElementById("start-timer");
-  const pauseButton = document.getElementById("pause-timer");
-  const resetButton = document.getElementById("reset-timer");
-
-  if (startButton) startButton.disabled = false;
-  if (pauseButton) pauseButton.disabled = true;
-  if (resetButton) resetButton.disabled = true;
-
-  // Reset timer variables
-  timerRunning = false;
-  isPaused = false;
-  currentStepIndex = 0;
-  currentTimeLeft = 0;
-  clearInterval(timerInterval);
-
-  // Clear URL parameters but don't refresh the page
-  window.history.pushState({}, "", window.location.pathname);
-}
-
-// Add event listener for reset button
-document.getElementById("reset-button").addEventListener("click", () => {
-  if (confirm("Are you sure you want to reset all inputs?")) {
-    resetAllInputs();
+// Event listeners for calculator
+waterInput.addEventListener("blur", () => {
+  if (waterInput.value !== "") {
+    updateLastTouched("water");
   }
 });
 
-// Theme handling
-function initTheme() {
-  const toggleSwitch = document.getElementById("theme-toggle");
-
-  // Check for saved theme preference
-  const savedTheme = localStorage.getItem("theme");
-
-  // Check if user prefers dark mode
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-
-  // Set initial theme
-  if (savedTheme) {
-    document.documentElement.setAttribute("data-theme", savedTheme);
-    toggleSwitch.checked = savedTheme === "dark";
-  } else if (prefersDark) {
-    document.documentElement.setAttribute("data-theme", "dark");
-    toggleSwitch.checked = true;
+coffeeInput.addEventListener("blur", () => {
+  if (coffeeInput.value !== "") {
+    updateLastTouched("coffee");
   }
+});
 
-  // Theme switch handler
-  toggleSwitch.addEventListener("change", (e) => {
-    const theme = e.target.checked ? "dark" : "light";
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("theme", theme);
-  });
-}
-
-
-
-// Timer State Management
-const timerState = {
-  isRunning: false,
-  currentTime: 0,
-  currentStep: 0,
-  steps: [], // Will contain {duration: number, description: string}
-  intervalId: null
-};
-
-// Timer Control Elements
-const playPauseBtn = document.getElementById('play-pause');
-const prevStepBtn = document.getElementById('prev-step');
-const nextStepBtn = document.getElementById('next-step');
-const resetTimerBtn = document.getElementById('reset-timer');
-const currentTimerDisplay = document.getElementById('current-timer');
-const stepIndicator = document.getElementById('step-indicator');
-
-// Format time as MM:SS
-function formatTime(seconds) {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-}
-
-// Update step indicator
-function updateStepIndicator() {
-  if (timerState.steps.length === 0) {
-      stepIndicator.textContent = 'No steps added';
-      return;
+ratioSelect.addEventListener("change", () => {
+  if (ratioSelect.value !== "") {
+    updateLastTouched("ratio");
   }
-  stepIndicator.textContent = `Step ${timerState.currentStep + 1} of ${timerState.steps.length}`;
-}
+});
 
-// Toggle play/pause
-function togglePlayPause() {
-  if (timerState.steps.length === 0) return;
+// Add event listeners for timer controls
+playPauseBtn.addEventListener("click", togglePlayPause);
+prevStepBtn.addEventListener("click", previousStep);
+nextStepBtn.addEventListener("click", nextStep);
+resetTimerBtn.addEventListener("click", resetTimer);
 
-  if (timerState.isRunning) {
-      // Pause
-      clearInterval(timerState.intervalId);
-      playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
-  } else {
-      // Play
-      timerState.intervalId = setInterval(() => {
-          if (timerState.currentTime > 0) {
-              timerState.currentTime--;
-              currentTimerDisplay.textContent = formatTime(timerState.currentTime);
-          } else {
-              // Auto-advance to next step if available
-              if (timerState.currentStep < timerState.steps.length - 1) {
-                  nextStep();
-              } else {
-                  clearInterval(timerState.intervalId);
-                  timerState.isRunning = false;
-                  playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
-              }
-          }
-      }, 1000);
-      playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-pause"></i>';
-  }
-  timerState.isRunning = !timerState.isRunning;
-}
+// Add event listener for add step button
+document
+  .getElementById("add-step")
+  .addEventListener("click", () => addRecipeStep());
 
-// Move to previous step
-function previousStep() {
-  if (timerState.currentStep > 0) {
-      timerState.currentStep--;
-      timerState.currentTime = timerState.steps[timerState.currentStep].duration;
-      currentTimerDisplay.textContent = formatTime(timerState.currentTime);
-      updateStepIndicator();
-      updateStepButtons();
-  }
-}
+// Add event listener for share button
+document.getElementById("shareBtn").addEventListener("click", shareRecipe);
 
-// Move to next step
-function nextStep() {
-  if (timerState.currentStep < timerState.steps.length - 1) {
-      timerState.currentStep++;
-      timerState.currentTime = timerState.steps[timerState.currentStep].duration;
-      currentTimerDisplay.textContent = formatTime(timerState.currentTime);
-      updateStepIndicator();
-      updateStepButtons();
-  }
-}
-
-// Reset timer
-function resetTimer() {
-  clearInterval(timerState.intervalId);
-  timerState.isRunning = false;
-  timerState.currentStep = 0;
-  timerState.currentTime = timerState.steps[0]?.duration || 0;
-  currentTimerDisplay.textContent = formatTime(timerState.currentTime);
-  playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
-  updateStepIndicator();
-  updateStepButtons();
-}
-
-// Update step navigation buttons
-function updateStepButtons() {
-  prevStepBtn.disabled = timerState.currentStep === 0;
-  nextStepBtn.disabled = timerState.currentStep === timerState.steps.length - 1;
-}
-
-// Event Listeners
-playPauseBtn.addEventListener('click', togglePlayPause);
-prevStepBtn.addEventListener('click', previousStep);
-nextStepBtn.addEventListener('click', nextStep);
-resetTimerBtn.addEventListener('click', resetTimer);
-
-// When adding a new recipe step, update the timer state
-function addStepToTimer(duration, description) {
-  timerState.steps.push({ duration, description });
-  if (timerState.steps.length === 1) {
-      timerState.currentTime = duration;
-      currentTimerDisplay.textContent = formatTime(duration);
-  }
-  updateStepIndicator();
-  updateStepButtons();
-}
-
-// Update your initialization (around line 796-807)
-document.addEventListener("DOMContentLoaded", () => {  // Changed from window to document
+// Initialize the app
+document.addEventListener("DOMContentLoaded", () => {
   populateRatioOptions();
   loadSharedRecipe();
   initTheme();
-
-  // Add share button event listener
-  const shareBtn = document.getElementById("shareBtn");
-  if (shareBtn) {
-      shareBtn.addEventListener("click", shareRecipe);
-  }
+  updateStepIndicator();
+  updateStepButtons();
 });
