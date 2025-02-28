@@ -25,7 +25,7 @@ const stepIndicator = document.getElementById("step-indicator");
 
 // Reset all inputs and reload the page
 function resetAllInputs() {
-  console.log('Reset button clicked');
+  console.log("Reset button clicked");
   // Clear URL parameters
   const baseUrl = window.location.origin + window.location.pathname;
   window.location.href = baseUrl;
