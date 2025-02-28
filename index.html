@@ -6,15 +6,12 @@
     <title>Coffee Ratio Calculator</title>
     <link rel="stylesheet" href="styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/lz-string@1.4.4/libs/lz-string.min.js"></script>
-    <script
-      src="https://kit.fontawesome.com/d859b98a98.js"
-      crossorigin="anonymous"
-    ></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   </head>
   <body>
     <div class="header-container">
       <button id="reset-button" class="reset-button" title="Reset All Inputs">
-        <i class="fa-solid fa-rotate-right"></i>
+        <i class="fas fa-rotate"></i>
       </button>
       <h1 class="app-title">Coffee Calc</h1>
       <div class="theme-toggle">
@@ -24,29 +21,16 @@
         </label>
       </div>
     </div>
+    
     <div class="recipe-details-container">
       <div class="recipe-details-column">
         <div class="input-group">
           <label for="water">Water (grams)</label>
-          <input
-            type="number"
-            id="water"
-            inputmode="numeric"
-            pattern="[0-9]*"
-            min="0"
-            step="1"
-          />
+          <input type="number" id="water" inputmode="numeric" pattern="[0-9]*" min="0" step="1" />
         </div>
         <div class="input-group">
           <label for="coffee">Coffee (grams)</label>
-          <input
-            type="number"
-            id="coffee"
-            inputmode="numeric"
-            pattern="[0-9]*"
-            min="0"
-            step="1"
-          />
+          <input type="number" id="coffee" inputmode="numeric" pattern="[0-9]*" min="0" step="1" />
         </div>
         <div class="input-group">
           <label for="ratio">Ratio (water:coffee)</label>
@@ -59,88 +43,53 @@
       <div class="recipe-details-column">
         <div class="input-group">
           <label for="grind-size">Grind Size (µm)</label>
-          <input
-            type="number"
-            id="grind-size"
-            min="0"
-            step="1"
-            value="650"
-            placeholder="Enter grind size"
-            class="metadata-input"
-          />
+          <input type="number" id="grind-size" min="0" step="1" value="650" placeholder="Enter grind size" class="metadata-input" />
         </div>
         <div class="input-group">
           <label for="water-temp">Water Temperature (°F)</label>
-          <input
-            type="number"
-            id="water-temp"
-            min="0"
-            max="212"
-            step="1"
-            value="200"
-            class="metadata-input"
-          />
+          <input type="number" id="water-temp" min="0" max="212" step="1" value="200" class="metadata-input" />
         </div>
         <div class="input-group">
           <label for="additional-notes">Additional Notes</label>
-          <textarea
-            id="additional-notes"
-            rows="4"
-            placeholder="Enter any additional notes about your recipe here..."
-            class="notes-input"
-          ></textarea>
+          <textarea id="additional-notes" rows="4" placeholder="Enter any additional notes about your recipe here..." class="notes-input"></textarea>
         </div>
       </div>
     </div>
 
     <div class="recipe-section">
       <h2>Recipe Steps</h2>
-      <div id="recipe-steps"></div>
+      <div id="recipe-steps">
+        <!-- Steps will be added here -->
+      </div>
       <button id="add-step" class="icon-button">
-        <i class="fa-solid fa-plus"></i>
+        <i class="fas fa-circle-plus"></i>
       </button>
     </div>
+
     <div class="timer-controls">
       <div class="timer-display">
         <div id="current-timer" class="current-timer">00:00</div>
         <div id="step-indicator" class="step-indicator">Step 0 of 0</div>
       </div>
       <div class="timer-buttons">
-        <button
-          id="prev-step"
-          class="icon-button timer-icon"
-          title="Previous Step"
-          disabled
-        >
+        <button id="prev-step" class="icon-button timer-icon" title="Previous Step" disabled>
           <i class="fa-solid fa-backward-step"></i>
         </button>
-        <button
-          id="play-pause"
-          class="icon-button timer-icon"
-          title="Play/Pause Timer"
-        >
+        <button id="play-pause" class="icon-button timer-icon" title="Play/Pause Timer">
           <i class="fa-solid fa-circle-play"></i>
         </button>
-        <button
-          id="next-step"
-          class="icon-button timer-icon"
-          title="Next Step"
-          disabled
-        >
+        <button id="next-step" class="icon-button timer-icon" title="Next Step" disabled>
           <i class="fa-solid fa-forward-step"></i>
         </button>
-        <button
-          id="reset-timer"
-          class="icon-button timer-icon"
-          title="Reset Timer"
-        >
+        <button id="reset-timer" class="icon-button timer-icon" title="Reset Timer">
           <i class="fa-solid fa-rotate-right"></i>
         </button>
       </div>
     </div>
+
     <div class="share-container">
       <button id="shareBtn" class="icon-button">
-        <i class="fa-solid fa-share-from-square"></i>
+        <i class="fas fa-share"></i>
       </button>
     </div>
 
