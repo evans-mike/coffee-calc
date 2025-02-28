@@ -37,7 +37,7 @@ function logTimerState(action) {
 
 // Populate ratio options (1:1 to 100:1) with 16:1 as default
 function populateRatioOptions() {
-  const defaultRatio = "16";
+  const defaultRatio = "18";
   ratioSelect.innerHTML = ""; // Clear existing options
 
   // Add ratio options from 1:1 to 100:1
@@ -164,6 +164,11 @@ function updateStepButtons() {
 function previousStep() {
   console.log("Previous step called");
   if (timerState.currentStep > 0) {
+    if (timerState.isRunning) {
+      clearInterval(timerState.intervalId);
+      timerState.isRunning = false;
+      playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
+    }
     timerState.currentStep--;
     const step = timerState.steps[timerState.currentStep];
     timerState.currentTime = step.duration;
@@ -181,6 +186,11 @@ function previousStep() {
 function nextStep() {
   console.log("Next step called");
   if (timerState.currentStep < timerState.steps.length - 1) {
+    if (timerState.isRunning) {
+      clearInterval(timerState.intervalId);
+      timerState.isRunning = false;
+      playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
+    }
     timerState.currentStep++;
     const step = timerState.steps[timerState.currentStep];
     timerState.currentTime = step.duration;
