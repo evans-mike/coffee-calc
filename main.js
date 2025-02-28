@@ -23,6 +23,37 @@ const resetTimerBtn = document.getElementById("reset-timer");
 const currentTimerDisplay = document.getElementById("current-timer");
 const stepIndicator = document.getElementById("step-indicator");
 
+// Reset all inputs and reload the page
+function resetAllInputs() {
+  // Reset calculator inputs
+  waterInput.value = "";
+  coffeeInput.value = "";
+  ratioSelect.value = "16"; // Reset to default ratio
+
+  // Reset metadata inputs
+  document.getElementById("grind-size").value = "650";
+  document.getElementById("water-temp").value = "200";
+  document.getElementById("additional-notes").value = "";
+
+  // Clear recipe steps
+  document.getElementById("recipe-steps").innerHTML = "";
+  timerState.steps = [];
+  timerState.currentStep = 0;
+  timerState.currentTime = 0;
+  clearInterval(timerState.intervalId);
+  timerState.isRunning = false;
+
+  // Reset timer display and buttons
+  currentTimerDisplay.textContent = "00:00";
+  stepIndicator.textContent = "Step 0 of 0";
+  playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
+  updateStepButtons();
+
+  // Log and reload page to reset any remaining state
+  console.log("All inputs have been reset.");
+  location.reload();
+}
+
 // Debug logging function
 function logTimerState(action) {
   console.log(`Timer Action: ${action}`);
@@ -601,4 +632,8 @@ document.addEventListener("DOMContentLoaded", () => {
   initTheme();
   updateStepIndicator();
   updateStepButtons();
+  // Add event listener for reset button
+  document
+    .getElementById("reset-button")
+    .addEventListener("click", resetAllInputs);
 });
