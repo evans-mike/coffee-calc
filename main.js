@@ -246,6 +246,9 @@ function addRecipeStep(initialValues = null) {
   stepElement.className = "recipe-step";
 
   // Water amount input
+  const waterSpan = document.createElement("span");
+  waterSpan.className = "editable";
+  waterSpan.setAttribute("data-placeholder", "Water (g)");
   const waterInput = document.createElement("input");
   waterInput.type = "number";
   waterInput.min = "0";
@@ -253,19 +256,37 @@ function addRecipeStep(initialValues = null) {
   waterInput.inputMode = "numeric";
   waterInput.pattern = "[0-9]*";
   waterInput.placeholder = "Water (g)";
-  if (initialValues) waterInput.value = initialValues.water;
+  waterInput.style.display = "none";
+  if (initialValues) {
+    waterInput.value = initialValues.water;
+    waterSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + initialValues.water;
+  } else {
+    waterSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + waterSpan.getAttribute("data-placeholder");
+  }
 
   // Step description input
+  const descriptionSpan = document.createElement("span");
+  descriptionSpan.className = "editable";
+  descriptionSpan.setAttribute("data-placeholder", "Step description");
   const descriptionInput = document.createElement("input");
   descriptionInput.type = "text";
   descriptionInput.placeholder = "Step description";
-  if (initialValues) descriptionInput.value = initialValues.description;
+  descriptionInput.style.display = "none";
+  if (initialValues) {
+    descriptionInput.value = initialValues.description;
+    descriptionSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + initialValues.description;
+  } else {
+    descriptionSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + descriptionSpan.getAttribute("data-placeholder");
+  }
 
   // Time container
   const timeContainer = document.createElement("div");
   timeContainer.className = "time-container";
 
   // Minutes input
+  const minutesSpan = document.createElement("span");
+  minutesSpan.className = "editable";
+  minutesSpan.setAttribute("data-placeholder", "MM");
   const minutesInput = document.createElement("input");
   minutesInput.type = "number";
   minutesInput.className = "time-input minutes";
@@ -275,7 +296,13 @@ function addRecipeStep(initialValues = null) {
   minutesInput.inputMode = "numeric";
   minutesInput.pattern = "[0-9]*";
   minutesInput.placeholder = "MM";
-  if (initialValues) minutesInput.value = initialValues.minutes;
+  minutesInput.style.display = "none";
+  if (initialValues) {
+    minutesInput.value = initialValues.minutes;
+    minutesSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + initialValues.minutes;
+  } else {
+    minutesSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + minutesSpan.getAttribute("data-placeholder");
+  }
 
   // Time separator
   const timeSeparator = document.createElement("span");
@@ -283,6 +310,9 @@ function addRecipeStep(initialValues = null) {
   timeSeparator.className = "time-separator";
 
   // Seconds input
+  const secondsSpan = document.createElement("span");
+  secondsSpan.className = "editable";
+  secondsSpan.setAttribute("data-placeholder", "SS");
   const secondsInput = document.createElement("input");
   secondsInput.type = "number";
   secondsInput.className = "time-input seconds";
@@ -292,7 +322,13 @@ function addRecipeStep(initialValues = null) {
   secondsInput.inputMode = "numeric";
   secondsInput.pattern = "[0-9]*";
   secondsInput.placeholder = "SS";
-  if (initialValues) secondsInput.value = initialValues.seconds;
+  secondsInput.style.display = "none";
+  if (initialValues) {
+    secondsInput.value = initialValues.seconds;
+    secondsSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + initialValues.seconds;
+  } else {
+    secondsSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + secondsSpan.getAttribute("data-placeholder");
+  }
 
   // Add time change listeners
   const updateTimerState = () => {
@@ -318,8 +354,10 @@ function addRecipeStep(initialValues = null) {
   });
 
   // Assemble time container
+  timeContainer.appendChild(minutesSpan);
   timeContainer.appendChild(minutesInput);
   timeContainer.appendChild(timeSeparator);
+  timeContainer.appendChild(secondsSpan);
   timeContainer.appendChild(secondsInput);
 
   // Remove button
@@ -346,7 +384,9 @@ function addRecipeStep(initialValues = null) {
   });
 
   // Assemble step
+  stepElement.appendChild(waterSpan);
   stepElement.appendChild(waterInput);
+  stepElement.appendChild(descriptionSpan);
   stepElement.appendChild(descriptionInput);
   stepElement.appendChild(timeContainer);
   stepElement.appendChild(removeButton);
@@ -446,10 +486,7 @@ function generateRecipeMarkdown() {
 
     markdown += `${
       index + 1
-    }. Pour ${water}g - ${description} (${minutes}:${seconds.padStart(
-      2,
-      "0"
-    )})\n`;
+    }. Pour ${water}g - ${description} (${minutes}:${seconds.padStart})\n`;
   });
 
   if (notes.trim()) {
@@ -527,8 +564,7 @@ function loadSharedRecipe() {
   if (!compressedData) return;
 
   try {
-    const jsonString =
-      LZString.decompressFromEncodedURIComponent(compressedData);
+    const jsonString = LZString.decompressFromEncodedURIComponent(compressedData);
     const recipeData = JSON.parse(jsonString);
 
     // Set calculator values
@@ -544,14 +580,11 @@ function loadSharedRecipe() {
     // Set metadata values
     if (recipeData.metadata) {
       if (recipeData.metadata.grindSize)
-        document.getElementById("grind-size").value =
-          recipeData.metadata.grindSize;
+        document.getElementById("grind-size").value = recipeData.metadata.grindSize;
       if (recipeData.metadata.waterTemp)
-        document.getElementById("water-temp").value =
-          recipeData.metadata.waterTemp;
+        document.getElementById("water-temp").value = recipeData.metadata.waterTemp;
       if (recipeData.metadata.notes)
-        document.getElementById("additional-notes").value =
-          recipeData.metadata.notes;
+        document.getElementById("additional-notes").value = recipeData.metadata.notes;
     }
 
     // Clear existing steps
@@ -595,9 +628,7 @@ nextStepBtn.addEventListener("click", nextStep);
 resetTimerBtn.addEventListener("click", resetTimer);
 
 // Add event listener for add step button
-document
-  .getElementById("add-step")
-  .addEventListener("click", () => addRecipeStep());
+document.getElementById("add-step").addEventListener("click", () => addRecipeStep());
 
 // Add event listener for share button
 document.getElementById("shareBtn").addEventListener("click", shareRecipe);
@@ -610,9 +641,7 @@ document.addEventListener("DOMContentLoaded", () => {
   updateStepIndicator();
   updateStepButtons();
   // Add event listener for reset button
-  document
-    .getElementById("reset-button")
-    .addEventListener("click", resetAllInputs);
+  document.getElementById("reset-button").addEventListener("click", resetAllInputs);
 });
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -620,7 +649,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
   editableSpans.forEach((span) => {
     const input = span.nextElementSibling;
-    span.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> ' + (input.value || span.getAttribute("data-placeholder"));
+    span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (input.value || span.getAttribute("data-placeholder"));
+    input.style.display = "none";
 
     span.addEventListener("click", function () {
       this.style.display = "none";
@@ -629,7 +659,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     input.addEventListener("blur", function () {
-      span.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> ' + (this.value || span.getAttribute("data-placeholder"));
+      span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (this.value || span.getAttribute("data-placeholder"));
       this.style.display = "none";
       span.style.display = "inline";
     });
