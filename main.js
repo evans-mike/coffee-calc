@@ -614,3 +614,30 @@ document.addEventListener("DOMContentLoaded", () => {
     .getElementById("reset-button")
     .addEventListener("click", resetAllInputs);
 });
+
+document.addEventListener("DOMContentLoaded", function () {
+  const editableSpans = document.querySelectorAll(".editable");
+
+  editableSpans.forEach((span) => {
+    const input = span.nextElementSibling;
+    span.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> ' + (input.value || span.getAttribute("data-placeholder"));
+
+    span.addEventListener("click", function () {
+      this.style.display = "none";
+      input.style.display = "inline";
+      input.focus();
+    });
+
+    input.addEventListener("blur", function () {
+      span.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> ' + (this.value || span.getAttribute("data-placeholder"));
+      this.style.display = "none";
+      span.style.display = "inline";
+    });
+
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        this.blur();
+      }
+    });
+  });
+});

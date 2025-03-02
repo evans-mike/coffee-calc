@@ -29,6 +29,7 @@
       <div class="recipe-details-column">
         <div class="input-group">
           <label for="water">Water (grams)</label>
+          <span id="water-span" class="editable" data-placeholder="Enter water amount"></span>
           <input
             type="number"
             id="water"
@@ -36,10 +37,12 @@
             pattern="[0-9]*"
             min="0"
             step="1"
+            style="display: none;"
           />
         </div>
         <div class="input-group">
           <label for="coffee">Coffee (grams)</label>
+          <span id="coffee-span" class="editable" data-placeholder="Enter coffee amount"></span>
           <input
             type="number"
             id="coffee"
@@ -47,11 +50,13 @@
             pattern="[0-9]*"
             min="0"
             step="1"
+            style="display: none;"
           />
         </div>
         <div class="input-group">
           <label for="ratio">Ratio (water:coffee)</label>
-          <select id="ratio">
+          <span id="ratio-span" class="editable" data-placeholder="Select ratio"></span>
+          <select id="ratio" style="display: none;">
             <option value="">Select ratio</option>
           </select>
         </div>
@@ -60,6 +65,7 @@
       <div class="recipe-details-column">
         <div class="input-group">
           <label for="grind-size">Grind Size (µm)</label>
+          <span id="grind-size-span" class="editable" data-placeholder="Enter grind size">650</span>
           <input
             type="number"
             id="grind-size"
@@ -68,10 +74,12 @@
             value="650"
             placeholder="Enter grind size"
             class="metadata-input"
+            style="display: none;"
           />
         </div>
         <div class="input-group">
           <label for="water-temp">Water Temperature (°F)</label>
+          <span id="water-temp-span" class="editable" data-placeholder="Enter water temperature">200</span>
           <input
             type="number"
             id="water-temp"
@@ -80,15 +88,18 @@
             step="1"
             value="200"
             class="metadata-input"
+            style="display: none;"
           />
         </div>
         <div class="input-group">
           <label for="additional-notes">Additional Notes</label>
+          <span id="additional-notes-span" class="editable" data-placeholder="Enter notes"></span>
           <textarea
             id="additional-notes"
             rows="4"
             placeholder="Enter any additional notes about your recipe here..."
             class="notes-input"
+            style="display: none;"
           ></textarea>
         </div>
       </div>
