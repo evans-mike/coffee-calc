@@ -10,6 +10,8 @@ const timerState = {
   intervalId: null,
 };
 
+const timerControls = document.querySelector(".timer-controls");
+
 // Get DOM elements
 const waterInput = document.getElementById("water");
 const coffeeInput = document.getElementById("coffee");
@@ -115,11 +117,17 @@ function formatTime(seconds) {
 function updateStepIndicator() {
   if (timerState.steps.length === 0) {
     stepIndicator.textContent = "No steps added";
+    stepDetails.textContent = "";
+    timerControls.style.display = "none"; // Hide timer controls
     return;
   }
   stepIndicator.textContent = `Step ${timerState.currentStep + 1} of ${
     timerState.steps.length
   }`;
+  
+  const currentStep = timerState.steps[timerState.currentStep];
+  stepDetails.textContent = `Step ${timerState.currentStep + 1} - Add ${currentStep.water}g of water to ${currentStep.description} for ${formatTime(currentStep.duration)}`;
+  timerControls.style.display = "block"; // Show timer controls
 }
 
 function togglePlayPause() {
@@ -359,6 +367,7 @@ function addRecipeStep(initialValues = null) {
   timeContainer.appendChild(timeSeparator);
   timeContainer.appendChild(secondsSpan);
   timeContainer.appendChild(secondsInput);
+  stepsContainer.appendChild(stepElement);
 
   // Remove button
   const removeButton = document.createElement("button");
@@ -402,6 +411,7 @@ function addRecipeStep(initialValues = null) {
   if (timerState.steps.length === 1) {
     timerState.currentTime = duration;
     currentTimerDisplay.textContent = formatTime(duration);
+    timerControls.style.display = "block"; // Show timer controls
   }
 
   updateStepIndicator();
@@ -627,6 +637,13 @@ function loadSharedRecipe() {
       recipeData.steps.forEach((step) => {
         addRecipeStep(step);
       });
+    }
+
+    // Show timer controls if there are steps
+    if (recipeData.steps.length > 0) {
+      timerControls.style.display = "block";
+    } else {
+      timerControls.style.display = "none";
     }
   } catch (error) {
     console.error("Error loading shared recipe:", error);
