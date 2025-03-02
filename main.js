@@ -10,8 +10,6 @@ const timerState = {
   intervalId: null,
 };
 
-const timerControls = document.querySelector(".timer-controls");
-
 // Get DOM elements
 const waterInput = document.getElementById("water");
 const coffeeInput = document.getElementById("coffee");
@@ -24,6 +22,7 @@ const nextStepBtn = document.getElementById("next-step");
 const resetTimerBtn = document.getElementById("reset-timer");
 const currentTimerDisplay = document.getElementById("current-timer");
 const stepIndicator = document.getElementById("step-indicator");
+const stepDetails = document.getElementById("step-details");
 
 // Reset all inputs and reload the page
 function resetAllInputs() {
@@ -115,6 +114,7 @@ function formatTime(seconds) {
 }
 
 function updateStepIndicator() {
+  const timerControls = document.querySelector(".timer-controls");
   if (timerState.steps.length === 0) {
     stepIndicator.textContent = "No steps added";
     stepDetails.textContent = "";
@@ -367,7 +367,6 @@ function addRecipeStep(initialValues = null) {
   timeContainer.appendChild(timeSeparator);
   timeContainer.appendChild(secondsSpan);
   timeContainer.appendChild(secondsInput);
-  stepsContainer.appendChild(stepElement);
 
   // Remove button
   const removeButton = document.createElement("button");
@@ -528,7 +527,10 @@ function generateRecipeMarkdown() {
 
     markdown += `${
       index + 1
-    }. Pour ${water}g - ${description} (${minutes}:${seconds.padStart})\n`;
+    }. Pour ${water}g - ${description} (${minutes}:${seconds.padStart(
+      2,
+      "0"
+    )})\n`;
   });
 
   if (notes.trim()) {
@@ -640,6 +642,7 @@ function loadSharedRecipe() {
     }
 
     // Show timer controls if there are steps
+    const timerControls = document.querySelector(".timer-controls");
     if (recipeData.steps.length > 0) {
       timerControls.style.display = "block";
     } else {
