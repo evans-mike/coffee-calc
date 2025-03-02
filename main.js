@@ -407,6 +407,38 @@ function addRecipeStep(initialValues = null) {
   updateStepIndicator();
   updateStepButtons();
   logTimerState("Add Step");
+
+  // Attach event listeners to the new step's span and input elements
+  attachEditableListeners(stepElement);
+}
+
+// Attach event listeners to editable spans and inputs
+function attachEditableListeners(stepElement) {
+  const editableSpans = stepElement.querySelectorAll(".editable");
+
+  editableSpans.forEach((span) => {
+    const input = span.nextElementSibling;
+    span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (input.value || span.getAttribute("data-placeholder"));
+    input.style.display = "none";
+
+    span.addEventListener("click", function () {
+      this.style.display = "none";
+      input.style.display = "inline";
+      input.focus();
+    });
+
+    input.addEventListener("blur", function () {
+      span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (this.value || span.getAttribute("data-placeholder"));
+      this.style.display = "none";
+      span.style.display = "inline";
+    });
+
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        this.blur();
+      }
+    });
+  });
 }
 
 // Theme handling
