@@ -320,7 +320,7 @@ label {
 
 /* Timer Control Styles */
 .timer-controls {
-  display: flex;
+  display: none; /* Hidden by default, shown when steps are added */
   flex-direction: column;
   align-items: center;
   gap: 16px;
