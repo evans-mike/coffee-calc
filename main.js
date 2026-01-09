@@ -1,5 +1,5 @@
 // Global state variables
-let lastUpdated = ["ratio"]; // Track the order of updates
+let lastUpdated = []; // Track the order of user updates (not including default values)
 
 // Timer State Management
 const timerState = {
@@ -59,9 +59,44 @@ function populateRatioOptions() {
     }
     ratioSelect.appendChild(option);
   }
+  
+  // Update the ratio span to show the default value
+  if (defaultRatio) {
+    updateCalculatorSpanDisplay("ratio", defaultRatio);
+  }
 }
 
 // Calculator functions
+function updateCalculatorSpanDisplay(fieldName, value) {
+  const span = document.getElementById(`${fieldName}-span`);
+  if (!span) return;
+  
+  if (value && value !== "") {
+    if (fieldName === "ratio") {
+      span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + `${value}:1`;
+    } else {
+      span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + value;
+    }
+  } else {
+    const placeholder = span.getAttribute("data-placeholder") || "";
+    span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + placeholder;
+  }
+}
+
+function markFieldAsCalculated(fieldName) {
+  const span = document.getElementById(`${fieldName}-span`);
+  if (span) {
+    span.classList.add("calculated");
+  }
+}
+
+function removeCalculatedIndicator(fieldName) {
+  const span = document.getElementById(`${fieldName}-span`);
+  if (span) {
+    span.classList.remove("calculated");
+  }
+}
+
 function updateLastTouched(inputType) {
   lastUpdated = lastUpdated.filter((item) => item !== inputType);
   lastUpdated.push(inputType);
@@ -76,21 +111,55 @@ function calculateBasedOnLastUpdates() {
   const coffee = parseFloat(coffeeInput.value);
   const ratio = parseInt(ratioSelect.value);
 
-  if (lastUpdated.length < 2) return;
+  // Determine which fields have values (including defaults)
+  const fieldsWithValues = [];
+  if (!isNaN(water) && waterInput.value !== "") fieldsWithValues.push("water");
+  if (!isNaN(coffee) && coffeeInput.value !== "") fieldsWithValues.push("coffee");
+  if (!isNaN(ratio) && ratioSelect.value !== "") fieldsWithValues.push("ratio");
 
-  const toCalculate = ["water", "coffee", "ratio"].find(
-    (item) => !lastUpdated.includes(item)
-  );
+  // Need at least 2 fields with values to calculate the third
+  if (fieldsWithValues.length < 2) return;
+
+  // Determine which field to calculate based on the last 2 user-updated fields
+  let toCalculate;
+  
+  if (lastUpdated.length >= 2) {
+    // User has updated 2+ fields - calculate the one not in the last 2 updated
+    // lastUpdated keeps only the last 2, so find what's missing
+    toCalculate = ["water", "coffee", "ratio"].find(
+      (item) => !lastUpdated.includes(item)
+    );
+  } else if (lastUpdated.length === 1) {
+    // User has updated 1 field, and we have 2 fields with values total
+    // The other field with a value is likely a default (e.g., ratio)
+    // Calculate the third field that doesn't have a value
+    toCalculate = ["water", "coffee", "ratio"].find(
+      (item) => !fieldsWithValues.includes(item)
+    );
+  } else {
+    // No user updates yet - can't determine what to calculate
+    return;
+  }
+
+  if (!toCalculate) return;
 
   switch (toCalculate) {
     case "water":
       if (!isNaN(coffee) && !isNaN(ratio)) {
-        waterInput.value = (coffee * ratio).toFixed(0);
+        const calculatedValue = (coffee * ratio).toFixed(0);
+        waterInput.value = calculatedValue;
+        updateCalculatorSpanDisplay("water", calculatedValue);
+        markFieldAsCalculated("water");
+        updateUrlInBrowser();
       }
       break;
     case "coffee":
       if (!isNaN(water) && !isNaN(ratio)) {
-        coffeeInput.value = (water / ratio).toFixed(1);
+        const calculatedValue = (water / ratio).toFixed(1);
+        coffeeInput.value = calculatedValue;
+        updateCalculatorSpanDisplay("coffee", calculatedValue);
+        markFieldAsCalculated("coffee");
+        updateUrlInBrowser();
       }
       break;
     case "ratio":
@@ -98,6 +167,9 @@ function calculateBasedOnLastUpdates() {
         const calculatedRatio = Math.round(water / coffee);
         if (calculatedRatio >= 1 && calculatedRatio <= 100) {
           ratioSelect.value = calculatedRatio;
+          updateCalculatorSpanDisplay("ratio", calculatedRatio.toString());
+          markFieldAsCalculated("ratio");
+          updateUrlInBrowser();
         }
       }
       break;
@@ -349,6 +421,7 @@ function addRecipeStep(initialValues = null) {
         currentTimerDisplay.textContent = formatTime(duration);
       }
       console.log("Updated step duration:", { stepIndex, duration });
+      updateUrlInBrowser();
     }
   };
 
@@ -358,6 +431,7 @@ function addRecipeStep(initialValues = null) {
     const stepIndex = Array.from(stepsContainer.children).indexOf(stepElement);
     if (stepIndex !== -1 && stepIndex < timerState.steps.length) {
       timerState.steps[stepIndex].description = descriptionInput.value;
+      updateUrlInBrowser();
     }
   });
 
@@ -389,6 +463,7 @@ function addRecipeStep(initialValues = null) {
     }
     updateStepIndicator();
     updateStepButtons();
+    updateUrlInBrowser();
   });
 
   // Assemble step
@@ -419,6 +494,8 @@ function addRecipeStep(initialValues = null) {
 
   // Attach event listeners to the new step's span and input elements
   attachEditableListeners(stepElement);
+  
+  updateUrlInBrowser();
 }
 
 // Attach event listeners to editable spans and inputs
@@ -440,6 +517,8 @@ function attachEditableListeners(stepElement) {
       span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (this.value || span.getAttribute("data-placeholder"));
       this.style.display = "none";
       span.style.display = "inline";
+      // Update URL when recipe step fields are edited
+      updateUrlInBrowser();
     });
 
     input.addEventListener("keydown", function (event) {
@@ -499,6 +578,26 @@ function buildUrlWithValues() {
   return (
     window.location.origin + window.location.pathname + "?data=" + compressed
   );
+}
+
+// Flag to prevent URL updates during initial load
+let isUpdatingFromUrl = false;
+
+// Debounced function to update URL with current values
+let updateUrlTimeout = null;
+function updateUrlInBrowser() {
+  // Clear any pending update
+  if (updateUrlTimeout) {
+    clearTimeout(updateUrlTimeout);
+  }
+  
+  // Debounce: wait 300ms after last change before updating URL
+  updateUrlTimeout = setTimeout(() => {
+    if (!isUpdatingFromUrl) {
+      const newUrl = buildUrlWithValues();
+      window.history.pushState({ path: newUrl }, '', newUrl);
+    }
+  }, 300);
 }
 
 function generateRecipeMarkdown() {
@@ -607,18 +706,25 @@ function loadSharedRecipe() {
 
   if (!compressedData) return;
 
+  isUpdatingFromUrl = true; // Prevent URL updates during load
   try {
     const jsonString = LZString.decompressFromEncodedURIComponent(compressedData);
     const recipeData = JSON.parse(jsonString);
 
     // Set calculator values
     if (recipeData.calculator) {
-      if (recipeData.calculator.water)
+      if (recipeData.calculator.water) {
         waterInput.value = recipeData.calculator.water;
-      if (recipeData.calculator.coffee)
+        updateCalculatorSpanDisplay("water", recipeData.calculator.water);
+      }
+      if (recipeData.calculator.coffee) {
         coffeeInput.value = recipeData.calculator.coffee;
-      if (recipeData.calculator.ratio)
+        updateCalculatorSpanDisplay("coffee", recipeData.calculator.coffee);
+      }
+      if (recipeData.calculator.ratio) {
         ratioSelect.value = recipeData.calculator.ratio;
+        updateCalculatorSpanDisplay("ratio", recipeData.calculator.ratio);
+      }
     }
 
     // Set metadata values
@@ -651,26 +757,67 @@ function loadSharedRecipe() {
   } catch (error) {
     console.error("Error loading shared recipe:", error);
     alert("Invalid recipe data in URL");
+  } finally {
+    // Re-enable URL updates after load completes
+    setTimeout(() => {
+      isUpdatingFromUrl = false;
+    }, 100);
   }
 }
 
 // Event listeners for calculator
+const waterSpan = document.getElementById("water-span");
+const coffeeSpan = document.getElementById("coffee-span");
+const ratioSpan = document.getElementById("ratio-span");
+
 waterInput.addEventListener("blur", () => {
+  updateCalculatorSpanDisplay("water", waterInput.value);
+  waterInput.style.display = "none";
+  if (waterSpan) waterSpan.style.display = "inline";
+  removeCalculatedIndicator("water"); // Remove calculated indicator when user edits
   if (waterInput.value !== "") {
     updateLastTouched("water");
+  }
+  updateUrlInBrowser();
+});
+
+waterInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    waterInput.blur();
   }
 });
 
 coffeeInput.addEventListener("blur", () => {
+  updateCalculatorSpanDisplay("coffee", coffeeInput.value);
+  coffeeInput.style.display = "none";
+  if (coffeeSpan) coffeeSpan.style.display = "inline";
+  removeCalculatedIndicator("coffee"); // Remove calculated indicator when user edits
   if (coffeeInput.value !== "") {
     updateLastTouched("coffee");
+  }
+  updateUrlInBrowser();
+});
+
+coffeeInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    coffeeInput.blur();
   }
 });
 
 ratioSelect.addEventListener("change", () => {
+  updateCalculatorSpanDisplay("ratio", ratioSelect.value);
+  ratioSelect.style.display = "none";
+  if (ratioSpan) ratioSpan.style.display = "inline";
+  removeCalculatedIndicator("ratio"); // Remove calculated indicator when user edits
   if (ratioSelect.value !== "") {
     updateLastTouched("ratio");
   }
+  updateUrlInBrowser();
+});
+
+ratioSelect.addEventListener("blur", () => {
+  ratioSelect.style.display = "none";
+  if (ratioSpan) ratioSpan.style.display = "inline";
 });
 
 // Add event listeners for timer controls
@@ -686,21 +833,16 @@ document.getElementById("add-step").addEventListener("click", () => addRecipeSte
 document.getElementById("shareBtn").addEventListener("click", shareRecipe);
 
 // Initialize the app
-document.addEventListener("DOMContentLoaded", () => {
-  populateRatioOptions();
-  loadSharedRecipe();
-  initTheme();
-  updateStepIndicator();
-  updateStepButtons();
-  // Add event listener for reset button
-  document.getElementById("reset-button").addEventListener("click", resetAllInputs);
-});
-
 document.addEventListener("DOMContentLoaded", function () {
+  // First, initialize all editable spans with their current values or placeholders
   const editableSpans = document.querySelectorAll(".editable");
 
   editableSpans.forEach((span) => {
     const input = span.nextElementSibling;
+    // Skip calculator fields - they will be handled separately
+    if (span.id === "water-span" || span.id === "coffee-span" || span.id === "ratio-span") {
+      return;
+    }
     span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (input.value || span.getAttribute("data-placeholder"));
     input.style.display = "none";
 
@@ -714,6 +856,10 @@ document.addEventListener("DOMContentLoaded", function () {
       span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (this.value || span.getAttribute("data-placeholder"));
       this.style.display = "none";
       span.style.display = "inline";
+      // Update URL for metadata fields
+      if (this.id === "grind-size" || this.id === "water-temp" || this.id === "additional-notes") {
+        updateUrlInBrowser();
+      }
     });
 
     input.addEventListener("keydown", function (event) {
@@ -722,4 +868,44 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
   });
+
+  // Initialize calculator spans and add click handlers
+  if (waterSpan) {
+    waterSpan.addEventListener("click", function () {
+      this.style.display = "none";
+      waterInput.style.display = "inline";
+      waterInput.focus();
+    });
+  }
+  
+  if (coffeeSpan) {
+    coffeeSpan.addEventListener("click", function () {
+      this.style.display = "none";
+      coffeeInput.style.display = "inline";
+      coffeeInput.focus();
+    });
+  }
+  
+  if (ratioSpan) {
+    ratioSpan.addEventListener("click", function () {
+      this.style.display = "none";
+      ratioSelect.style.display = "inline";
+      ratioSelect.focus();
+    });
+  }
+  
+  // Initialize calculator-specific functionality
+  populateRatioOptions();
+  loadSharedRecipe();
+  
+  // Initialize calculator spans after values are set (this will format them correctly)
+  updateCalculatorSpanDisplay("water", waterInput.value);
+  updateCalculatorSpanDisplay("coffee", coffeeInput.value);
+  updateCalculatorSpanDisplay("ratio", ratioSelect.value);
+  
+  initTheme();
+  updateStepIndicator();
+  updateStepButtons();
+  // Add event listener for reset button
+  document.getElementById("reset-button").addEventListener("click", resetAllInputs);
 });

@@ -248,6 +248,23 @@ label {
   font-weight: 500;
 }
 
+/* Calculated field indicator - minimal green LED dot */
+.input-group {
+  position: relative;
+}
+
+.input-group .editable.calculated::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--success-color);
+  margin-left: 8px;
+  vertical-align: middle;
+  box-shadow: 0 0 4px rgba(52, 199, 89, 0.6);
+}
+
 /* Timer Display */
 .current-timer {
   font-size: 34px;
