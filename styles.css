@@ -35,8 +35,10 @@ body {
     "SF Pro Display", system-ui, sans-serif;
   background-color: var(--background-primary);
   color: var(--text-primary);
-  margin: 0;
+  margin: 0 auto;
   padding: 20px;
+  max-width: 700px;
+  box-sizing: border-box;
   transition: background-color 0.3s, color 0.3s;
   -webkit-font-smoothing: antialiased;
 }
