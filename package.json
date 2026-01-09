@@ -1,0 +1,21 @@
+{
+  "name": "coffee-calc",
+  "version": "1.0.0",
+  "description": "A coffee ratio calculator with recipe steps and brewing timer",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "dev": "tsc --watch"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "keywords": [
+    "coffee",
+    "calculator",
+    "recipe",
+    "timer"
+  ],
+  "author": "",
+  "license": "MIT"
+}
