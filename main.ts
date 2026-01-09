@@ -37,7 +37,7 @@ interface TimerState {
   currentTime: number;
   currentStep: number;
   steps: RecipeStep[];
-  intervalId: number | null;
+  intervalId: ReturnType<typeof setInterval> | null;
 }
 
 const timerState: TimerState = {
@@ -49,17 +49,18 @@ const timerState: TimerState = {
 };
 
 // Get DOM elements with type assertions
-const waterInput = document.getElementById("water") as HTMLInputElement;
-const coffeeInput = document.getElementById("coffee") as HTMLInputElement;
-const ratioSelect = document.getElementById("ratio") as HTMLSelectElement;
+// Using non-null assertion (!) since these elements are required in the HTML
+const waterInput = document.getElementById("water")! as HTMLInputElement;
+const coffeeInput = document.getElementById("coffee")! as HTMLInputElement;
+const ratioSelect = document.getElementById("ratio")! as HTMLSelectElement;
 
 // Timer Control Elements
-const playPauseBtn = document.getElementById("play-pause") as HTMLButtonElement;
-const prevStepBtn = document.getElementById("prev-step") as HTMLButtonElement;
-const nextStepBtn = document.getElementById("next-step") as HTMLButtonElement;
-const resetTimerBtn = document.getElementById("reset-timer") as HTMLButtonElement;
-const currentTimerDisplay = document.getElementById("current-timer") as HTMLDivElement;
-const stepIndicator = document.getElementById("step-indicator") as HTMLDivElement;
+const playPauseBtn = document.getElementById("play-pause")! as HTMLButtonElement;
+const prevStepBtn = document.getElementById("prev-step")! as HTMLButtonElement;
+const nextStepBtn = document.getElementById("next-step")! as HTMLButtonElement;
+const resetTimerBtn = document.getElementById("reset-timer")! as HTMLButtonElement;
+const currentTimerDisplay = document.getElementById("current-timer")! as HTMLDivElement;
+const stepIndicator = document.getElementById("step-indicator")! as HTMLDivElement;
 const stepDetails = document.getElementById("step-details") as HTMLDivElement | null;
 
 // Reset all inputs and reload the page
@@ -224,7 +225,9 @@ function formatTime(seconds: number): string {
 }
 
 function updateStepIndicator(): void {
-  const timerControls = document.querySelector(".timer-controls") as HTMLElement;
+  const timerControls = document.querySelector(".timer-controls") as HTMLElement | null;
+  if (!timerControls) return;
+  
   if (timerState.steps.length === 0) {
     stepIndicator.textContent = "No steps added";
     if (stepDetails) stepDetails.textContent = "";
@@ -236,7 +239,7 @@ function updateStepIndicator(): void {
   }`;
   
   const currentStep = timerState.steps[timerState.currentStep];
-  if (stepDetails && currentStep.water) {
+  if (stepDetails && currentStep && currentStep.water) {
     stepDetails.textContent = `Step ${timerState.currentStep + 1} - Add ${currentStep.water}g of water to ${currentStep.description} for ${formatTime(currentStep.duration)}`;
   }
   timerControls.style.display = "flex"; // Show timer controls
@@ -258,11 +261,11 @@ function togglePlayPause(): void {
     playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
   } else {
     console.log("Starting timer");
-    if (!timerState.currentTime && timerState.steps[timerState.currentStep]) {
-      timerState.currentTime =
-        timerState.steps[timerState.currentStep].duration;
+    const currentStep = timerState.steps[timerState.currentStep];
+    if (!timerState.currentTime && currentStep) {
+      timerState.currentTime = currentStep.duration;
     }
-    timerState.intervalId = window.setInterval(() => {
+    timerState.intervalId = setInterval(() => {
       if (timerState.currentTime > 0) {
         timerState.currentTime--;
         currentTimerDisplay.textContent = formatTime(timerState.currentTime);
@@ -305,15 +308,17 @@ function previousStep(): void {
     }
     timerState.currentStep--;
     const step = timerState.steps[timerState.currentStep];
-    timerState.currentTime = step.duration;
-    currentTimerDisplay.textContent = formatTime(timerState.currentTime);
-    console.log("Moved to previous step:", {
-      currentStep: timerState.currentStep,
-      duration: step.duration,
-      description: step.description,
-    });
-    updateStepIndicator();
-    updateStepButtons();
+    if (step) {
+      timerState.currentTime = step.duration;
+      currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+      console.log("Moved to previous step:", {
+        currentStep: timerState.currentStep,
+        duration: step.duration,
+        description: step.description,
+      });
+      updateStepIndicator();
+      updateStepButtons();
+    }
   }
 }
 
@@ -329,15 +334,17 @@ function nextStep(): void {
     }
     timerState.currentStep++;
     const step = timerState.steps[timerState.currentStep];
-    timerState.currentTime = step.duration;
-    currentTimerDisplay.textContent = formatTime(timerState.currentTime);
-    console.log("Moved to next step:", {
-      currentStep: timerState.currentStep,
-      duration: step.duration,
-      description: step.description,
-    });
-    updateStepIndicator();
-    updateStepButtons();
+    if (step) {
+      timerState.currentTime = step.duration;
+      currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+      console.log("Moved to next step:", {
+        currentStep: timerState.currentStep,
+        duration: step.duration,
+        description: step.description,
+      });
+      updateStepIndicator();
+      updateStepButtons();
+    }
   }
 }
 
@@ -348,7 +355,7 @@ function resetTimer(): void {
   }
   timerState.isRunning = false;
   timerState.currentStep = 0;
-  if (timerState.steps.length > 0) {
+  if (timerState.steps.length > 0 && timerState.steps[0]) {
     timerState.currentTime = timerState.steps[0].duration;
     currentTimerDisplay.textContent = formatTime(timerState.currentTime);
   } else {
@@ -509,9 +516,11 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
       timerState.currentTime = 0;
       currentTimerDisplay.textContent = "00:00";
     } else if (!timerState.isRunning) {
-      timerState.currentTime =
-        timerState.steps[timerState.currentStep].duration;
-      currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+      const step = timerState.steps[timerState.currentStep];
+      if (step) {
+        timerState.currentTime = step.duration;
+        currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+      }
     }
     updateStepIndicator();
     updateStepButtons();
@@ -562,23 +571,24 @@ function attachEditableListeners(stepElement: Element): void {
     span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (input.value || span.getAttribute("data-placeholder"));
     input.style.display = "none";
 
-    span.addEventListener("click", function () {
-      this.style.display = "none";
+    span.addEventListener("click", () => {
+      (span as HTMLElement).style.display = "none";
       input.style.display = "inline";
       input.focus();
     });
 
-    input.addEventListener("blur", function () {
-      span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (this.value || span.getAttribute("data-placeholder"));
-      this.style.display = "none";
+    input.addEventListener("blur", () => {
+      span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (input.value || span.getAttribute("data-placeholder"));
+      input.style.display = "none";
       (span as HTMLElement).style.display = "inline";
       // Update URL when recipe step fields are edited
       updateUrlInBrowser();
     });
 
-    input.addEventListener("keydown", function (event: KeyboardEvent) {
-      if (event.key === "Enter") {
-        this.blur();
+    input.addEventListener("keydown", (event: Event) => {
+      const keyboardEvent = event as KeyboardEvent;
+      if (keyboardEvent.key === "Enter") {
+        input.blur();
       }
     });
   });
@@ -642,7 +652,7 @@ function buildUrlWithValues(): string {
 let isUpdatingFromUrl = false;
 
 // Debounced function to update URL with current values
-let updateUrlTimeout: number | null = null;
+let updateUrlTimeout: ReturnType<typeof setTimeout> | null = null;
 function updateUrlInBrowser(): void {
   // Clear any pending update
   if (updateUrlTimeout !== null) {
@@ -650,7 +660,7 @@ function updateUrlInBrowser(): void {
   }
   
   // Debounce: wait 300ms after last change before updating URL
-  updateUrlTimeout = window.setTimeout(() => {
+  updateUrlTimeout = setTimeout(() => {
     if (!isUpdatingFromUrl) {
       const newUrl = buildUrlWithValues();
       window.history.pushState({ path: newUrl }, '', newUrl);
@@ -854,8 +864,9 @@ waterInput.addEventListener("blur", () => {
   updateUrlInBrowser();
 });
 
-waterInput.addEventListener("keydown", (event: KeyboardEvent) => {
-  if (event.key === "Enter") {
+waterInput.addEventListener("keydown", (event: Event) => {
+  const keyboardEvent = event as KeyboardEvent;
+  if (keyboardEvent.key === "Enter") {
     waterInput.blur();
   }
 });
@@ -871,8 +882,9 @@ coffeeInput.addEventListener("blur", () => {
   updateUrlInBrowser();
 });
 
-coffeeInput.addEventListener("keydown", (event: KeyboardEvent) => {
-  if (event.key === "Enter") {
+coffeeInput.addEventListener("keydown", (event: Event) => {
+  const keyboardEvent = event as KeyboardEvent;
+  if (keyboardEvent.key === "Enter") {
     coffeeInput.blur();
   }
 });
@@ -927,49 +939,50 @@ document.addEventListener("DOMContentLoaded", function () {
     span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (input.value || span.getAttribute("data-placeholder"));
     input.style.display = "none";
 
-    span.addEventListener("click", function () {
-      (this as HTMLElement).style.display = "none";
+    span.addEventListener("click", () => {
+      (span as HTMLElement).style.display = "none";
       input.style.display = "inline";
       input.focus();
     });
 
-    input.addEventListener("blur", function () {
-      span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (this.value || span.getAttribute("data-placeholder"));
-      this.style.display = "none";
+    input.addEventListener("blur", () => {
+      span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (input.value || span.getAttribute("data-placeholder"));
+      input.style.display = "none";
       (span as HTMLElement).style.display = "inline";
       // Update URL for metadata fields
-      if (this.id === "grind-size" || this.id === "water-temp" || this.id === "additional-notes") {
+      if (input.id === "grind-size" || input.id === "water-temp" || input.id === "additional-notes") {
         updateUrlInBrowser();
       }
     });
 
-    input.addEventListener("keydown", function (event: KeyboardEvent) {
-      if (event.key === "Enter") {
-        this.blur();
+    input.addEventListener("keydown", (event: Event) => {
+      const keyboardEvent = event as KeyboardEvent;
+      if (keyboardEvent.key === "Enter") {
+        input.blur();
       }
     });
   });
 
   // Initialize calculator spans and add click handlers
   if (waterSpan) {
-    waterSpan.addEventListener("click", function () {
-      (this as HTMLElement).style.display = "none";
+    waterSpan.addEventListener("click", () => {
+      waterSpan.style.display = "none";
       waterInput.style.display = "inline";
       waterInput.focus();
     });
   }
   
   if (coffeeSpan) {
-    coffeeSpan.addEventListener("click", function () {
-      (this as HTMLElement).style.display = "none";
+    coffeeSpan.addEventListener("click", () => {
+      coffeeSpan.style.display = "none";
       coffeeInput.style.display = "inline";
       coffeeInput.focus();
     });
   }
   
   if (ratioSpan) {
-    ratioSpan.addEventListener("click", function () {
-      (this as HTMLElement).style.display = "none";
+    ratioSpan.addEventListener("click", () => {
+      ratioSpan.style.display = "none";
       ratioSelect.style.display = "inline";
       ratioSelect.focus();
     });

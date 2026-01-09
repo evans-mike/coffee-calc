@@ -4,4 +4,7 @@ declare namespace LZString {
   function decompressFromEncodedURIComponent(input: string): string | null;
 }
 
-declare var LZString: typeof LZString;
+declare var LZString: {
+  compressToEncodedURIComponent: (input: string) => string;
+  decompressFromEncodedURIComponent: (input: string) => string | null;
+};
