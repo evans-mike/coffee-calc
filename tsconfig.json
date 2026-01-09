@@ -1,24 +1,21 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "ES2020",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "outDir": "./",
-    "rootDir": "./",
+    "module": "none",
+    "lib": ["ES2020", "DOM"],
+    "outFile": "./main.js",
     "strict": true,
-    "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "moduleResolution": "node",
     "noImplicitAny": true,
     "strictNullChecks": true,
     "strictFunctionTypes": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "removeComments": false
   },
-  "include": ["main.ts"],
-  "exclude": ["node_modules"]
+  "include": ["main.ts", "lz-string.d.ts"],
+  "exclude": ["node_modules", "*.js"]
 }
