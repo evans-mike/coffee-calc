@@ -357,6 +357,22 @@ function startAccumulatedGramsInterval(): void {
   // Calculate target accumulated grams for this step (previous total + increment = current step's total)
   const targetAccumulatedGrams = currentStepWaterTotal;
   
+  console.log("Starting accumulated grams interval:", {
+    currentStepIndex,
+    stepStartTime,
+    stepEndTime,
+    stepDuration,
+    stepWaterIncrement,
+    currentStepWaterTotal,
+    previousStepWaterTotal,
+    accumulatedFromPreviousSteps,
+    currentAccumulated: timerState.accumulatedGrams,
+    targetAccumulatedGrams,
+    gramsPerSecond,
+    incrementInterval,
+    currentTime: timerState.currentTime
+  });
+  
   timerState.accumulatedGramsIntervalId = setInterval(() => {
     // Check if timer is still running
     if (!timerState.isRunning) {
@@ -368,7 +384,7 @@ function startAccumulatedGramsInterval(): void {
       return;
     }
     
-    // Check if we've reached the target (or exceeded it)
+    // PRIMARY CHECK: Check if we've reached the target (or exceeded it)
     if (timerState.accumulatedGrams >= targetAccumulatedGrams) {
       // Step complete, stop this interval
       if (timerState.accumulatedGramsIntervalId !== null) {
@@ -385,7 +401,7 @@ function startAccumulatedGramsInterval(): void {
       return;
     }
     
-    // Check if we've moved past this step based on current time
+    // SAFETY CHECK: Check if we've moved past this step based on current time
     const elapsedInStep = timerState.currentTime - stepStartTime;
     if (elapsedInStep >= stepDuration) {
       // We've moved past this step, stop and start next
@@ -406,6 +422,14 @@ function startAccumulatedGramsInterval(): void {
     // Still in step and haven't reached target, increment
     timerState.accumulatedGrams++;
     accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
+    console.log("Accumulated grams incremented:", {
+      currentAccumulated: timerState.accumulatedGrams,
+      target: targetAccumulatedGrams,
+      currentTime: timerState.currentTime,
+      elapsedInStep,
+      stepStartTime,
+      stepDuration
+    });
   }, incrementInterval);
 }
 
@@ -490,11 +514,24 @@ function updateTimerStats(): void {
       (current.timestamp > prev.timestamp) ? current : prev
     );
     const totalTime = lastStep.timestamp;
-    totalTimeDisplay.textContent = `Total: ${formatTime(totalTime)}`;
+    const formattedTime = formatTime(totalTime);
+    totalTimeDisplay.textContent = `Total: ${formattedTime}`;
     
     // Get last step's water amount (total grams)
+    // Water is stored as string, parse it to number
     const totalGrams = lastStep.water ? parseInt(lastStep.water, 10) : 0;
     totalGramsDisplay.textContent = `Total: ${totalGrams}g`;
+    
+    // Debug: Log for single step verification
+    if (timerState.steps.length === 1) {
+      console.log("Single step recipe:", {
+        timestamp: lastStep.timestamp,
+        formattedTime,
+        water: lastStep.water,
+        totalGrams,
+        currentAccumulated: timerState.accumulatedGrams
+      });
+    }
   }
   
   // Display accumulated grams (always integer)
@@ -1135,7 +1172,8 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
   // Add to timer state first (with current timestamp, even if 0:00)
   const initialTimestamp = parseStepTimestamp(minutesInput, secondsInput);
   const description = descriptionInput.value || `Step ${timerState.steps.length + 1}`;
-  timerState.steps.push({ timestamp: initialTimestamp, description, water: stepWaterInput.value || undefined });
+  const water = stepWaterInput.value || undefined;
+  timerState.steps.push({ timestamp: initialTimestamp, description, water });
   
   // Sort steps by timestamp
   timerState.steps.sort((a, b) => a.timestamp - b.timestamp);
@@ -1144,15 +1182,23 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
   
   reorderStepsInDOM();
 
+  // Initialize timer state for first step
   if (timerState.steps.length === 1) {
     timerState.currentTime = 0;
     timerState.currentStep = 0;
+    timerState.accumulatedGrams = 0; // Reset accumulated grams for first step
     currentTimerDisplay.textContent = "00:00";
+    accumulatedGramsDisplay.textContent = "0g";
     const timerControls = document.querySelector(".timer-controls") as HTMLElement;
     if (timerControls) timerControls.style.display = "flex";
   }
 
-  updateStepIndicator();
+  // Update timer display immediately (total time, total grams, step indicator)
+  // This ensures the display shows correct values when step is added
+  // Note: updateStepIndicator() calls updateTimerStats(), but we also call it explicitly
+  // to ensure it runs before updateStepIndicator() updates the step display
+  updateTimerStats();
+  updateStepIndicator(); // This also calls updateTimerStats() internally, but that's OK
   updateStepButtons();
   logTimerState("Add Step");
 
