@@ -2,7 +2,7 @@
 type CalculatorField = "water" | "coffee" | "ratio";
 
 interface RecipeStep {
-  duration: number;
+  timestamp: number; // Total seconds from start (e.g., 0, 30, 45, 65, 90, 120)
   description: string;
   water?: string;
 }
@@ -10,8 +10,8 @@ interface RecipeStep {
 interface StepInitialValues {
   water: string;
   description: string;
-  minutes: string;
-  seconds: string;
+  timestampMinutes: string;
+  timestampSeconds: string;
 }
 
 interface RecipeData {
@@ -42,9 +42,9 @@ interface TimerState {
 
 const timerState: TimerState = {
   isRunning: false,
-  currentTime: 0,
+  currentTime: 0, // Elapsed time in seconds (counts up from 0:00)
   currentStep: 0,
-  steps: [], // Will contain {duration: number, description: string}
+  steps: [], // Will contain {timestamp: number, description: string, water?: string}
   intervalId: null,
 };
 
@@ -247,7 +247,7 @@ function updateStepIndicator(): void {
   }
   
   if (stepDetails && currentStep && currentStep.water) {
-    stepDetails.textContent = `Step ${timerState.currentStep + 1} - Add ${currentStep.water}g of water to ${currentStep.description} for ${formatTime(currentStep.duration)}`;
+    stepDetails.textContent = `Step ${timerState.currentStep + 1} - Add ${currentStep.water}g of water to ${currentStep.description} at ${formatTime(currentStep.timestamp)}`;
   }
   timerControls.style.display = "flex"; // Show timer controls
 }
@@ -259,30 +259,14 @@ function startTimer(): void {
     timerState.intervalId = null;
   }
   
-  const currentStep = timerState.steps[timerState.currentStep];
-  if (!timerState.currentTime && currentStep) {
-    timerState.currentTime = currentStep.duration;
-  }
-  
+  // Timer starts from currentTime and counts up
   timerState.intervalId = setInterval(() => {
-    if (timerState.currentTime > 0) {
-      timerState.currentTime--;
-      currentTimerDisplay.textContent = formatTime(timerState.currentTime);
-      console.log("Timer tick:", timerState.currentTime);
-    } else {
-      console.log("Step completed");
-      if (timerState.currentStep < timerState.steps.length - 1) {
-        nextStep();
-      } else {
-        console.log("All steps completed");
-        if (timerState.intervalId !== null) {
-          clearInterval(timerState.intervalId);
-        }
-        timerState.isRunning = false;
-        timerState.intervalId = null;
-        playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
-      }
-    }
+    timerState.currentTime++;
+    currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+    console.log("Timer tick:", timerState.currentTime);
+    
+    // Update current step based on elapsed time
+    updateCurrentStepFromTime();
   }, 1000);
   timerState.isRunning = true;
   playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-pause"></i>';
@@ -332,11 +316,11 @@ function previousStep(): void {
     timerState.currentStep--;
     const step = timerState.steps[timerState.currentStep];
     if (step) {
-      timerState.currentTime = step.duration;
+      timerState.currentTime = step.timestamp;
       currentTimerDisplay.textContent = formatTime(timerState.currentTime);
       console.log("Moved to previous step:", {
         currentStep: timerState.currentStep,
-        duration: step.duration,
+        timestamp: step.timestamp,
         description: step.description,
       });
       updateStepIndicator();
@@ -369,11 +353,11 @@ function nextStep(): void {
     timerState.currentStep++;
     const step = timerState.steps[timerState.currentStep];
     if (step) {
-      timerState.currentTime = step.duration;
+      timerState.currentTime = step.timestamp;
       currentTimerDisplay.textContent = formatTime(timerState.currentTime);
       console.log("Moved to next step:", {
         currentStep: timerState.currentStep,
-        duration: step.duration,
+        timestamp: step.timestamp,
         description: step.description,
       });
       updateStepIndicator();
@@ -398,24 +382,19 @@ function resetTimer(): void {
   }
   timerState.isRunning = false;
   timerState.currentStep = 0;
-  if (timerState.steps.length > 0 && timerState.steps[0]) {
-    timerState.currentTime = timerState.steps[0].duration;
-    currentTimerDisplay.textContent = formatTime(timerState.currentTime);
-  } else {
-    timerState.currentTime = 0;
-    currentTimerDisplay.textContent = "00:00";
-  }
+  timerState.currentTime = 0; // Reset to 0:00
+  currentTimerDisplay.textContent = "00:00";
   playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
   updateStepIndicator();
   updateStepButtons();
   logTimerState("Reset Timer");
 }
 
-function parseStepDuration(minutesInput: HTMLInputElement, secondsInput: HTMLInputElement): number {
+function parseStepTimestamp(minutesInput: HTMLInputElement, secondsInput: HTMLInputElement): number {
   const minutes = parseInt(minutesInput.value || "0", 10);
   const seconds = parseInt(secondsInput.value || "0", 10);
   const totalSeconds = minutes * 60 + seconds;
-  console.log("Parsed step duration:", { minutes, seconds, totalSeconds });
+  console.log("Parsed step timestamp:", { minutes, seconds, totalSeconds });
   return totalSeconds;
 }
 
@@ -427,7 +406,116 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
   const stepElement = document.createElement("div");
   stepElement.className = "recipe-step";
 
-  // Water amount input
+  // Time container (timestamp picker) - NEW ORDER: First
+  const timeContainer = document.createElement("div");
+  timeContainer.className = "time-container";
+
+  // Minutes input for timestamp
+  const minutesSpan = document.createElement("span");
+  minutesSpan.className = "editable timestamp-minutes";
+  minutesSpan.setAttribute("data-placeholder", "0");
+  const minutesInput = document.createElement("input");
+  minutesInput.type = "number";
+  minutesInput.className = "time-input timestamp-minutes";
+  minutesInput.min = "0";
+  minutesInput.max = "59";
+  minutesInput.step = "1";
+  minutesInput.inputMode = "numeric";
+  minutesInput.pattern = "[0-9]*";
+  minutesInput.placeholder = "0";
+  minutesInput.style.display = "none";
+  if (initialValues) {
+    minutesInput.value = initialValues.timestampMinutes;
+    const mins = parseInt(initialValues.timestampMinutes || "0", 10);
+    const secs = parseInt(initialValues.timestampSeconds || "0", 10);
+    const isEmpty = mins === 0 && secs === 0;
+    const displayValue = initialValues.timestampMinutes.padStart(2, "0");
+    minutesSpan.innerHTML = isEmpty ? '<i class="fa-regular fa-pen-to-square"></i> ' + displayValue : displayValue;
+  } else {
+    minutesSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> 00';
+  }
+
+  // Time separator
+  const timeSeparator = document.createElement("span");
+  timeSeparator.textContent = ":";
+  timeSeparator.className = "time-separator";
+
+  // Seconds input for timestamp
+  const secondsSpan = document.createElement("span");
+  secondsSpan.className = "editable timestamp-seconds";
+  secondsSpan.setAttribute("data-placeholder", "0");
+  const secondsInput = document.createElement("input");
+  secondsInput.type = "number";
+  secondsInput.className = "time-input timestamp-seconds";
+  secondsInput.min = "0";
+  secondsInput.max = "59";
+  secondsInput.step = "1";
+  secondsInput.inputMode = "numeric";
+  secondsInput.pattern = "[0-9]*";
+  secondsInput.placeholder = "0";
+  secondsInput.style.display = "none";
+  if (initialValues) {
+    secondsInput.value = initialValues.timestampSeconds;
+    const displayValue = initialValues.timestampSeconds.padStart(2, "0");
+    secondsSpan.innerHTML = displayValue;
+  } else {
+    secondsSpan.innerHTML = "00";
+  }
+
+  // Update timestamp display helper - only show icon if empty (0:00)
+  const updateTimestampDisplay = (): void => {
+    const mins = minutesInput.value || "0";
+    const secs = secondsInput.value || "0";
+    const totalSeconds = parseInt(mins, 10) * 60 + parseInt(secs, 10);
+    const isEmpty = totalSeconds === 0;
+    
+    if (isEmpty) {
+      minutesSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> 00';
+    } else {
+      minutesSpan.innerHTML = mins.padStart(2, "0");
+    }
+    secondsSpan.innerHTML = secs.padStart(2, "0");
+  };
+  
+  // Add click listeners for timestamp spans to make them editable
+  minutesSpan.addEventListener("click", () => {
+    minutesSpan.style.display = "none";
+    minutesInput.style.display = "inline";
+    minutesInput.focus();
+    minutesInput.select();
+  });
+  
+  secondsSpan.addEventListener("click", () => {
+    secondsSpan.style.display = "none";
+    secondsInput.style.display = "inline";
+    secondsInput.focus();
+    secondsInput.select();
+  });
+
+  // Step description input - NEW ORDER: Second
+  const descriptionSpan = document.createElement("span");
+  descriptionSpan.className = "editable";
+  descriptionSpan.setAttribute("data-placeholder", "Step description");
+  const descriptionInput = document.createElement("input");
+  descriptionInput.type = "text";
+  descriptionInput.placeholder = "Step description";
+  descriptionInput.style.display = "none";
+  // Helper function to format description display - only show icon if empty
+  const formatDescriptionDisplay = (value: string): string => {
+    if (!value || value === "") {
+      return '<i class="fa-regular fa-pen-to-square"></i> ' + descriptionSpan.getAttribute("data-placeholder");
+    }
+    return value;
+  };
+
+  if (initialValues) {
+    descriptionInput.value = initialValues.description;
+    descriptionSpan.innerHTML = formatDescriptionDisplay(initialValues.description);
+  } else {
+    descriptionSpan.innerHTML = formatDescriptionDisplay("");
+  }
+
+  // Water amount input - NEW ORDER: Third
   const waterSpan = document.createElement("span");
   waterSpan.className = "editable";
   waterSpan.setAttribute("data-placeholder", "Water (g)");
@@ -439,106 +527,190 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
   stepWaterInput.pattern = "[0-9]*";
   stepWaterInput.placeholder = "Water (g)";
   stepWaterInput.style.display = "none";
-  if (initialValues) {
-    stepWaterInput.value = initialValues.water;
-    waterSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + initialValues.water;
-  } else {
-    waterSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + waterSpan.getAttribute("data-placeholder");
-  }
-
-  // Step description input
-  const descriptionSpan = document.createElement("span");
-  descriptionSpan.className = "editable";
-  descriptionSpan.setAttribute("data-placeholder", "Step description");
-  const descriptionInput = document.createElement("input");
-  descriptionInput.type = "text";
-  descriptionInput.placeholder = "Step description";
-  descriptionInput.style.display = "none";
-  if (initialValues) {
-    descriptionInput.value = initialValues.description;
-    descriptionSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + initialValues.description;
-  } else {
-    descriptionSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + descriptionSpan.getAttribute("data-placeholder");
-  }
-
-  // Time container
-  const timeContainer = document.createElement("div");
-  timeContainer.className = "time-container";
-
-  // Minutes input
-  const minutesSpan = document.createElement("span");
-  minutesSpan.className = "editable";
-  minutesSpan.setAttribute("data-placeholder", "MM");
-  const minutesInput = document.createElement("input");
-  minutesInput.type = "number";
-  minutesInput.className = "time-input minutes";
-  minutesInput.min = "0";
-  minutesInput.max = "59";
-  minutesInput.step = "1";
-  minutesInput.inputMode = "numeric";
-  minutesInput.pattern = "[0-9]*";
-  minutesInput.placeholder = "MM";
-  minutesInput.style.display = "none";
-  if (initialValues) {
-    minutesInput.value = initialValues.minutes;
-    minutesSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + initialValues.minutes;
-  } else {
-    minutesSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + minutesSpan.getAttribute("data-placeholder");
-  }
-
-  // Time separator
-  const timeSeparator = document.createElement("span");
-  timeSeparator.textContent = ":";
-  timeSeparator.className = "time-separator";
-
-  // Seconds input
-  const secondsSpan = document.createElement("span");
-  secondsSpan.className = "editable";
-  secondsSpan.setAttribute("data-placeholder", "SS");
-  const secondsInput = document.createElement("input");
-  secondsInput.type = "number";
-  secondsInput.className = "time-input seconds";
-  secondsInput.min = "0";
-  secondsInput.max = "59";
-  secondsInput.step = "1";
-  secondsInput.inputMode = "numeric";
-  secondsInput.pattern = "[0-9]*";
-  secondsInput.placeholder = "SS";
-  secondsInput.style.display = "none";
-  if (initialValues) {
-    secondsInput.value = initialValues.seconds;
-    secondsSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + initialValues.seconds;
-  } else {
-    secondsSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + secondsSpan.getAttribute("data-placeholder");
-  }
-
-  // Add time change listeners
-  const updateTimerState = (): void => {
-    const duration = parseStepDuration(minutesInput, secondsInput);
-    const stepIndex = Array.from(stepsContainer.children).indexOf(stepElement);
-    if (stepIndex !== -1 && stepIndex < timerState.steps.length) {
-      timerState.steps[stepIndex].duration = duration;
-      if (stepIndex === timerState.currentStep && !timerState.isRunning) {
-        timerState.currentTime = duration;
-        currentTimerDisplay.textContent = formatTime(duration);
-      }
-      console.log("Updated step duration:", { stepIndex, duration });
-      updateUrlInBrowser();
+  // Helper function to format water display with "g" suffix - only show icon if empty
+  const formatWaterDisplay = (value: string): string => {
+    if (!value || value === "") {
+      return '<i class="fa-regular fa-pen-to-square"></i> ' + waterSpan.getAttribute("data-placeholder");
     }
+    return value + 'g';
   };
 
-  minutesInput.addEventListener("change", updateTimerState);
-  secondsInput.addEventListener("change", updateTimerState);
+  if (initialValues) {
+    // Strip "g" suffix if present in initialValues
+    const waterValue = initialValues.water.replace(/g$/, "");
+    stepWaterInput.value = waterValue;
+    waterSpan.innerHTML = formatWaterDisplay(waterValue);
+  } else {
+    waterSpan.innerHTML = formatWaterDisplay("");
+  }
+
+  // Add timestamp change listeners
+  const updateTimerState = (): void => {
+    const timestamp = parseStepTimestamp(minutesInput, secondsInput);
+    
+    // Find the step by matching description and water (more reliable than index)
+    const stepDesc = descriptionInput.value;
+    const stepWater = stepWaterInput.value || undefined;
+    const stepToUpdate = timerState.steps.find(step => 
+      step.description === stepDesc && step.water === stepWater
+    );
+    
+    if (stepToUpdate) {
+      // Check if this is the current step before updating
+      const wasCurrentStepIndex = timerState.steps.indexOf(stepToUpdate);
+      const wasCurrentStep = wasCurrentStepIndex === timerState.currentStep;
+      
+      // Update the timestamp
+      stepToUpdate.timestamp = timestamp;
+      
+      // Sort steps by timestamp to maintain order
+      timerState.steps.sort((a, b) => a.timestamp - b.timestamp);
+      // Re-render steps in sorted order
+      reorderStepsInDOM();
+      
+      // Update current step if timer is not running
+      if (!timerState.isRunning) {
+        // If this was the current step, update the timer time to the new timestamp
+        if (wasCurrentStep) {
+          timerState.currentTime = timestamp;
+          currentTimerDisplay.textContent = formatTime(timestamp);
+        }
+        
+        // Recalculate which step should be current based on elapsed time
+        updateCurrentStepFromTime();
+        
+        // Check if the updated step is still the current step
+        const newStepIndex = timerState.steps.indexOf(stepToUpdate);
+        const isCurrentStep = newStepIndex === timerState.currentStep;
+        
+        // If this step is still the current step and timer is paused, update display
+        if (isCurrentStep) {
+          updateStepIndicator();
+        }
+      }
+      
+      console.log("Updated step timestamp:", { wasCurrentStepIndex, newStepIndex: timerState.steps.indexOf(stepToUpdate), timestamp, wasCurrentStep });
+      updateUrlInBrowser();
+    }
+    updateTimestampDisplay();
+  };
+
+  minutesInput.addEventListener("blur", () => {
+    updateTimerState();
+    updateTimestampDisplay();
+    minutesInput.style.display = "none";
+    minutesSpan.style.display = "inline";
+  });
+  minutesInput.addEventListener("change", () => {
+    updateTimerState();
+    updateTimestampDisplay();
+  });
+  secondsInput.addEventListener("blur", () => {
+    updateTimerState();
+    updateTimestampDisplay();
+    secondsInput.style.display = "none";
+    secondsSpan.style.display = "inline";
+  });
+  secondsInput.addEventListener("change", () => {
+    updateTimerState();
+    updateTimestampDisplay();
+  });
+
+  descriptionInput.addEventListener("blur", () => {
+    // Find the step in timerState.steps by matching timestamp
+    const timestamp = parseStepTimestamp(minutesInput, secondsInput);
+    const stepInState = timerState.steps.find(step => step.timestamp === timestamp);
+    if (stepInState) {
+      const stepIndex = timerState.steps.indexOf(stepInState);
+      const isCurrentStep = stepIndex === timerState.currentStep;
+      
+      stepInState.description = descriptionInput.value;
+      
+      // If this is the current step and timer is paused, update display
+      if (isCurrentStep && !timerState.isRunning) {
+        updateStepIndicator();
+      }
+    }
+    descriptionSpan.innerHTML = formatDescriptionDisplay(descriptionInput.value);
+    descriptionInput.style.display = "none";
+    descriptionSpan.style.display = "inline";
+    updateUrlInBrowser();
+  });
+
   descriptionInput.addEventListener("change", () => {
-    const stepIndex = Array.from(stepsContainer.children).indexOf(stepElement);
-    if (stepIndex !== -1 && stepIndex < timerState.steps.length) {
-      timerState.steps[stepIndex].description = descriptionInput.value;
+    // Find the step in timerState.steps by matching timestamp
+    const timestamp = parseStepTimestamp(minutesInput, secondsInput);
+    const stepInState = timerState.steps.find(step => step.timestamp === timestamp);
+    if (stepInState) {
+      const stepIndex = timerState.steps.indexOf(stepInState);
+      const isCurrentStep = stepIndex === timerState.currentStep;
+      
+      stepInState.description = descriptionInput.value;
+      
+      // If this is the current step and timer is paused, update display
+      if (isCurrentStep && !timerState.isRunning) {
+        updateStepIndicator();
+      }
       updateUrlInBrowser();
     }
   });
+  
+  // Add click listener for description span
+  descriptionSpan.addEventListener("click", () => {
+    descriptionSpan.style.display = "none";
+    descriptionInput.style.display = "inline";
+    descriptionInput.focus();
+    descriptionInput.select();
+  });
+
+  stepWaterInput.addEventListener("blur", () => {
+    // Find the step in timerState.steps by matching timestamp
+    const timestamp = parseStepTimestamp(minutesInput, secondsInput);
+    const stepInState = timerState.steps.find(step => step.timestamp === timestamp);
+    if (stepInState) {
+      const stepIndex = timerState.steps.indexOf(stepInState);
+      const isCurrentStep = stepIndex === timerState.currentStep;
+      
+      stepInState.water = stepWaterInput.value || undefined;
+      
+      // If this is the current step and timer is paused, update display
+      if (isCurrentStep && !timerState.isRunning) {
+        updateStepIndicator();
+      }
+    }
+    waterSpan.innerHTML = formatWaterDisplay(stepWaterInput.value);
+    stepWaterInput.style.display = "none";
+    waterSpan.style.display = "inline";
+    updateUrlInBrowser();
+  });
+
+  stepWaterInput.addEventListener("change", () => {
+    // Find the step in timerState.steps by matching timestamp
+    const timestamp = parseStepTimestamp(minutesInput, secondsInput);
+    const stepInState = timerState.steps.find(step => step.timestamp === timestamp);
+    if (stepInState) {
+      const stepIndex = timerState.steps.indexOf(stepInState);
+      const isCurrentStep = stepIndex === timerState.currentStep;
+      
+      stepInState.water = stepWaterInput.value || undefined;
+      
+      // If this is the current step and timer is paused, update display
+      if (isCurrentStep && !timerState.isRunning) {
+        updateStepIndicator();
+      }
+      updateUrlInBrowser();
+    }
+  });
+  
+  // Add click listener for water span
+  waterSpan.addEventListener("click", () => {
+    waterSpan.style.display = "none";
+    stepWaterInput.style.display = "inline";
+    stepWaterInput.focus();
+    stepWaterInput.select();
+  });
 
   // Helper function to handle TAB navigation within recipe steps
-  // Handles both Enter (to blur) and Tab (to navigate)
   const setupStepTabNavigation = (input: HTMLInputElement, nextInputInStep: HTMLInputElement | null) => {
     input.addEventListener("keydown", (event: Event) => {
       const keyboardEvent = event as KeyboardEvent;
@@ -546,7 +718,6 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
         input.blur();
       } else if (keyboardEvent.key === "Tab" && !keyboardEvent.shiftKey) {
         if (nextInputInStep) {
-          // Move to next input in this step
           event.preventDefault();
           const nextSpan = nextInputInStep.previousElementSibling as HTMLElement;
           if (nextSpan && nextSpan.classList.contains("editable")) {
@@ -558,18 +729,17 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
           // Last input in step - check for next step
           const nextStep = stepElement.nextElementSibling;
           if (nextStep) {
-            const nextStepWater = nextStep.querySelector('input[type="number"]:not(.time-input)') as HTMLInputElement;
-            if (nextStepWater) {
+            const nextStepTime = nextStep.querySelector('.timestamp-minutes') as HTMLInputElement;
+            if (nextStepTime) {
               event.preventDefault();
-              const nextStepWaterSpan = nextStepWater.previousElementSibling as HTMLElement;
-              if (nextStepWaterSpan && nextStepWaterSpan.classList.contains("editable")) {
-                nextStepWaterSpan.style.display = "none";
-                nextStepWater.style.display = "inline";
+              const nextStepTimeSpan = nextStepTime.previousElementSibling as HTMLElement;
+              if (nextStepTimeSpan && nextStepTimeSpan.classList.contains("editable")) {
+                nextStepTimeSpan.style.display = "none";
+                nextStepTime.style.display = "inline";
               }
-              nextStepWater.focus();
+              nextStepTime.focus();
             }
           }
-          // Otherwise let default tab behavior continue
         }
       }
     });
@@ -586,68 +756,121 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
   const removeButton = document.createElement("button");
   removeButton.className = "remove-step";
   removeButton.innerHTML = '<i class="fa-solid fa-times"></i>';
-  removeButton.tabIndex = -1; // Remove from tab order - use mouse/click to remove
+  removeButton.tabIndex = -1;
   removeButton.addEventListener("click", () => {
     const stepIndex = Array.from(stepsContainer.children).indexOf(stepElement);
     timerState.steps.splice(stepIndex, 1);
     stepElement.remove();
-    if (timerState.currentStep >= stepIndex) {
-      timerState.currentStep = Math.max(0, timerState.currentStep - 1);
-    }
     if (timerState.steps.length === 0) {
       timerState.currentTime = 0;
+      timerState.currentStep = 0;
       currentTimerDisplay.textContent = "00:00";
-    } else if (!timerState.isRunning) {
-      const step = timerState.steps[timerState.currentStep];
-      if (step) {
-        timerState.currentTime = step.duration;
-        currentTimerDisplay.textContent = formatTime(timerState.currentTime);
-      }
+      const timerControls = document.querySelector(".timer-controls") as HTMLElement;
+      if (timerControls) timerControls.style.display = "none";
+    } else {
+      updateCurrentStepFromTime();
     }
     updateStepIndicator();
     updateStepButtons();
     updateUrlInBrowser();
   });
 
-  // Assemble step
-  stepElement.appendChild(waterSpan);
-  stepElement.appendChild(stepWaterInput);
+  // Assemble step in NEW ORDER: timestamp → description → water → remove
+  stepElement.appendChild(timeContainer);
   stepElement.appendChild(descriptionSpan);
   stepElement.appendChild(descriptionInput);
-  stepElement.appendChild(timeContainer);
+  stepElement.appendChild(waterSpan);
+  stepElement.appendChild(stepWaterInput);
   stepElement.appendChild(removeButton);
 
   stepsContainer.appendChild(stepElement);
 
   // Add to timer state
-  const duration = parseStepDuration(minutesInput, secondsInput);
-  const description =
-    descriptionInput.value || `Step ${timerState.steps.length + 1}`;
-  timerState.steps.push({ duration, description, water: stepWaterInput.value || undefined });
+  const timestamp = parseStepTimestamp(minutesInput, secondsInput);
+  const description = descriptionInput.value || `Step ${timerState.steps.length + 1}`;
+  timerState.steps.push({ timestamp, description, water: stepWaterInput.value || undefined });
+  
+  // Sort steps by timestamp
+  timerState.steps.sort((a, b) => a.timestamp - b.timestamp);
+  reorderStepsInDOM();
 
   if (timerState.steps.length === 1) {
-    timerState.currentTime = duration;
-    currentTimerDisplay.textContent = formatTime(duration);
+    timerState.currentTime = 0;
+    timerState.currentStep = 0;
+    currentTimerDisplay.textContent = "00:00";
     const timerControls = document.querySelector(".timer-controls") as HTMLElement;
-    if (timerControls) timerControls.style.display = "flex"; // Show timer controls
+    if (timerControls) timerControls.style.display = "flex";
   }
 
   updateStepIndicator();
   updateStepButtons();
   logTimerState("Add Step");
 
-  // Attach event listeners to the new step's span and input elements
+  // Attach event listeners
   attachEditableListeners(stepElement);
   
-  // Set up TAB navigation AFTER attachEditableListeners
-  // The handlers will work together - attachEditableListeners handles Enter, this handles Tab
-  // Order: water -> description -> minutes -> seconds -> next step
-  setupStepTabNavigation(stepWaterInput, descriptionInput);
-  setupStepTabNavigation(descriptionInput, minutesInput);
+  // Set up TAB navigation: timestamp minutes → seconds → description → water → next step
   setupStepTabNavigation(minutesInput, secondsInput);
-  setupStepTabNavigation(secondsInput, null); // Last in step, will check for next step
+  setupStepTabNavigation(secondsInput, descriptionInput);
+  setupStepTabNavigation(descriptionInput, stepWaterInput);
+  setupStepTabNavigation(stepWaterInput, null);
   
+  updateTimestampDisplay();
   updateUrlInBrowser();
+}
+
+// Helper function to reorder steps in DOM based on timestamp order
+function reorderStepsInDOM(): void {
+  const stepsContainer = document.getElementById("recipe-steps");
+  if (!stepsContainer) return;
+  
+  // Get all step elements and extract their timestamps
+  const stepElements = Array.from(stepsContainer.children);
+  
+  // Create array with step elements and their timestamps
+  const stepData = stepElements.map(step => {
+    const minutesInput = step.querySelector(".timestamp-minutes") as HTMLInputElement;
+    const secondsInput = step.querySelector(".timestamp-seconds") as HTMLInputElement;
+    const minutes = parseInt(minutesInput?.value || "0", 10);
+    const seconds = parseInt(secondsInput?.value || "0", 10);
+    const timestamp = minutes * 60 + seconds;
+    return { element: step, timestamp };
+  });
+  
+  // Sort by timestamp
+  stepData.sort((a, b) => a.timestamp - b.timestamp);
+  
+  // Remove all elements first (preserves event listeners)
+  stepElements.forEach(element => {
+    stepsContainer.removeChild(element);
+  });
+  
+  // Re-append in sorted order (event listeners are preserved)
+  stepData.forEach(({ element }) => {
+    stepsContainer.appendChild(element);
+  });
+}
+
+// Helper function to find and update current step based on elapsed time
+function updateCurrentStepFromTime(): void {
+  if (timerState.steps.length === 0) {
+    timerState.currentStep = 0;
+    return;
+  }
+  
+  // Find the current step: the last step whose timestamp <= currentTime
+  let newStepIndex = 0;
+  for (let i = 0; i < timerState.steps.length; i++) {
+    if (timerState.steps[i].timestamp <= timerState.currentTime) {
+      newStepIndex = i;
+    } else {
+      break;
+    }
+  }
+  
+  timerState.currentStep = newStepIndex;
+  updateStepIndicator();
+  updateStepButtons();
 }
 
 // Attach event listeners to editable spans and inputs
@@ -656,10 +879,33 @@ function attachEditableListeners(stepElement: Element): void {
   const isRecipeStep = stepElement.classList.contains("recipe-step");
 
   editableSpans.forEach((span) => {
+    // Skip timestamp fields, description, and water fields in recipe steps - they are handled separately in addRecipeStep
+    if (span.classList.contains("timestamp-minutes") || span.classList.contains("timestamp-seconds")) {
+      return;
+    }
+    
+    // Skip description and water fields in recipe steps - they're handled separately
     const input = span.nextElementSibling as HTMLInputElement | HTMLTextAreaElement;
     if (!input) return;
     
-    span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (input.value || span.getAttribute("data-placeholder"));
+    // Check if this is a description input in a recipe step
+    if (isRecipeStep && input.type === "text") {
+      return; // Skip description input - handled separately
+    }
+    
+    // Check if this is a water input in a recipe step by checking if it's a number input that's not a time input
+    if (isRecipeStep && input.type === "number" && !input.classList.contains("time-input")) {
+      return; // Skip water input - handled separately
+    }
+    
+    // For non-recipe-step fields, show icon only if empty
+    const value = input.value || "";
+    const placeholder = span.getAttribute("data-placeholder") || "";
+    if (!value || value === "") {
+      span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + placeholder;
+    } else {
+      span.innerHTML = value;
+    }
     input.style.display = "none";
 
     span.addEventListener("click", () => {
@@ -669,7 +915,14 @@ function attachEditableListeners(stepElement: Element): void {
     });
 
     input.addEventListener("blur", () => {
-      span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (input.value || span.getAttribute("data-placeholder"));
+      // Show icon only if empty
+      const value = input.value || "";
+      const placeholder = span.getAttribute("data-placeholder") || "";
+      if (!value || value === "") {
+        span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + placeholder;
+      } else {
+        span.innerHTML = value;
+      }
       input.style.display = "none";
       (span as HTMLElement).style.display = "inline";
       // Update URL when recipe step fields are edited
@@ -727,10 +980,10 @@ function buildUrlWithValues(): string {
     },
     steps: Array.from(document.querySelectorAll(".recipe-step")).map(
       (step) => ({
-        water: (step.querySelector('input[type="number"]') as HTMLInputElement)?.value || "",
+        water: (step.querySelector('input[type="number"]:not(.time-input)') as HTMLInputElement)?.value || "",
         description: (step.querySelector('input[type="text"]') as HTMLInputElement)?.value || "",
-        minutes: (step.querySelector(".minutes") as HTMLInputElement)?.value || "0",
-        seconds: (step.querySelector(".seconds") as HTMLInputElement)?.value || "0",
+        timestampMinutes: (step.querySelector(".timestamp-minutes") as HTMLInputElement)?.value || "0",
+        timestampSeconds: (step.querySelector(".timestamp-seconds") as HTMLInputElement)?.value || "0",
       })
     ),
   };
@@ -781,17 +1034,12 @@ function generateRecipeMarkdown(): string {
 
   markdown += `## Steps\n`;
   steps.forEach((step, index) => {
-    const water = (step.querySelector('input[type="number"]') as HTMLInputElement)?.value || "";
+    const water = (step.querySelector('input[type="number"]:not(.time-input)') as HTMLInputElement)?.value || "";
     const description = (step.querySelector('input[type="text"]') as HTMLInputElement)?.value || "";
-    const minutes = (step.querySelector(".minutes") as HTMLInputElement)?.value || "0";
-    const seconds = (step.querySelector(".seconds") as HTMLInputElement)?.value || "0";
+    const minutes = (step.querySelector(".timestamp-minutes") as HTMLInputElement)?.value || "0";
+    const seconds = (step.querySelector(".timestamp-seconds") as HTMLInputElement)?.value || "0";
 
-    markdown += `${
-      index + 1
-    }. Pour ${water}g - ${description} (${minutes}:${seconds.padStart(
-      2,
-      "0"
-    )})\n`;
+    markdown += `${minutes}:${seconds.padStart(2, "0")} - ${description}${water ? ` - ${water}g` : ""}\n`;
   });
 
   if (notes.trim()) {
