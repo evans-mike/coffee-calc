@@ -45,7 +45,7 @@ A simple, intuitive calculator for coffee brewing ratios with recipe steps funct
   - Start/Pause button to control timer
   - Previous/Next step navigation buttons
   - Reset timer button to restart from the beginning
-  - Visual step indicator showing current step (e.g., "Step 2 of 4")
+  - Visual step indicator showing current step with description (e.g., "Step 2 of 4 - First pour")
   - Current timer display showing remaining time for active step
 - **Step Management**:
   - Remove individual steps with the × button
@@ -100,9 +100,13 @@ A simple, intuitive calculator for coffee brewing ratios with recipe steps funct
 1. Once steps are added, use the timer controls at the bottom
 2. Click Play (▶) to start the timer for the current step
 3. The timer counts down and automatically advances to the next step when complete
-4. Use Previous (⏮) and Next (⏭) buttons to navigate between steps
-5. Click Reset (↻) to restart from step 1
-6. Pause at any time to adjust or check your progress
+4. **Step Navigation with State Persistence**:
+   - Use Previous (⏮) and Next (⏭) buttons to navigate between steps
+   - **If timer is playing**: When you navigate to another step, the timer automatically continues playing on the new step
+   - **If timer is paused**: When you navigate to another step, the timer remains paused on the new step
+   - This allows you to jump between steps while maintaining your play/pause state
+5. Click Pause (⏸) at any time to pause the timer
+6. Click Reset (↻) to restart from step 1 with the timer paused
 
 ### Sharing Recipes
 - **Via URL**: Simply copy and share the current browser URL - it contains all your recipe data
