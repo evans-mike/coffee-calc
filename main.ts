@@ -234,15 +234,58 @@ function updateStepIndicator(): void {
     timerControls.style.display = "none"; // Hide timer controls
     return;
   }
-  stepIndicator.textContent = `Step ${timerState.currentStep + 1} of ${
-    timerState.steps.length
-  }`;
   
   const currentStep = timerState.steps[timerState.currentStep];
+  if (currentStep && currentStep.description) {
+    stepIndicator.textContent = `Step ${timerState.currentStep + 1} of ${
+      timerState.steps.length
+    } - ${currentStep.description}`;
+  } else {
+    stepIndicator.textContent = `Step ${timerState.currentStep + 1} of ${
+      timerState.steps.length
+    }`;
+  }
+  
   if (stepDetails && currentStep && currentStep.water) {
     stepDetails.textContent = `Step ${timerState.currentStep + 1} - Add ${currentStep.water}g of water to ${currentStep.description} for ${formatTime(currentStep.duration)}`;
   }
   timerControls.style.display = "flex"; // Show timer controls
+}
+
+function startTimer(): void {
+  // Clear any existing interval
+  if (timerState.intervalId !== null) {
+    clearInterval(timerState.intervalId);
+    timerState.intervalId = null;
+  }
+  
+  const currentStep = timerState.steps[timerState.currentStep];
+  if (!timerState.currentTime && currentStep) {
+    timerState.currentTime = currentStep.duration;
+  }
+  
+  timerState.intervalId = setInterval(() => {
+    if (timerState.currentTime > 0) {
+      timerState.currentTime--;
+      currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+      console.log("Timer tick:", timerState.currentTime);
+    } else {
+      console.log("Step completed");
+      if (timerState.currentStep < timerState.steps.length - 1) {
+        nextStep();
+      } else {
+        console.log("All steps completed");
+        if (timerState.intervalId !== null) {
+          clearInterval(timerState.intervalId);
+        }
+        timerState.isRunning = false;
+        timerState.intervalId = null;
+        playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
+      }
+    }
+  }, 1000);
+  timerState.isRunning = true;
+  playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-pause"></i>';
 }
 
 function togglePlayPause(): void {
@@ -257,36 +300,14 @@ function togglePlayPause(): void {
     console.log("Pausing timer");
     if (timerState.intervalId !== null) {
       clearInterval(timerState.intervalId);
+      timerState.intervalId = null;
     }
+    timerState.isRunning = false;
     playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
   } else {
     console.log("Starting timer");
-    const currentStep = timerState.steps[timerState.currentStep];
-    if (!timerState.currentTime && currentStep) {
-      timerState.currentTime = currentStep.duration;
-    }
-    timerState.intervalId = setInterval(() => {
-      if (timerState.currentTime > 0) {
-        timerState.currentTime--;
-        currentTimerDisplay.textContent = formatTime(timerState.currentTime);
-        console.log("Timer tick:", timerState.currentTime);
-      } else {
-        console.log("Step completed");
-        if (timerState.currentStep < timerState.steps.length - 1) {
-          nextStep();
-        } else {
-          console.log("All steps completed");
-          if (timerState.intervalId !== null) {
-            clearInterval(timerState.intervalId);
-          }
-          timerState.isRunning = false;
-          playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
-        }
-      }
-    }, 1000);
-    playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-pause"></i>';
+    startTimer();
   }
-  timerState.isRunning = !timerState.isRunning;
   logTimerState("Toggle Play/Pause");
 }
 
@@ -299,13 +320,15 @@ function updateStepButtons(): void {
 function previousStep(): void {
   console.log("Previous step called");
   if (timerState.currentStep > 0) {
-    if (timerState.isRunning) {
-      if (timerState.intervalId !== null) {
-        clearInterval(timerState.intervalId);
-      }
-      timerState.isRunning = false;
-      playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
+    // Save the current running state
+    const wasRunning = timerState.isRunning;
+    
+    // Stop the current timer interval if running
+    if (timerState.isRunning && timerState.intervalId !== null) {
+      clearInterval(timerState.intervalId);
+      timerState.intervalId = null;
     }
+    
     timerState.currentStep--;
     const step = timerState.steps[timerState.currentStep];
     if (step) {
@@ -318,6 +341,15 @@ function previousStep(): void {
       });
       updateStepIndicator();
       updateStepButtons();
+      
+      // If timer was running, restart it on the new step
+      if (wasRunning) {
+        startTimer();
+      } else {
+        // Keep paused state
+        timerState.isRunning = false;
+        playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
+      }
     }
   }
 }
@@ -325,13 +357,15 @@ function previousStep(): void {
 function nextStep(): void {
   console.log("Next step called");
   if (timerState.currentStep < timerState.steps.length - 1) {
-    if (timerState.isRunning) {
-      if (timerState.intervalId !== null) {
-        clearInterval(timerState.intervalId);
-      }
-      timerState.isRunning = false;
-      playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
+    // Save the current running state
+    const wasRunning = timerState.isRunning;
+    
+    // Stop the current timer interval if running
+    if (timerState.isRunning && timerState.intervalId !== null) {
+      clearInterval(timerState.intervalId);
+      timerState.intervalId = null;
     }
+    
     timerState.currentStep++;
     const step = timerState.steps[timerState.currentStep];
     if (step) {
@@ -344,6 +378,15 @@ function nextStep(): void {
       });
       updateStepIndicator();
       updateStepButtons();
+      
+      // If timer was running, restart it on the new step
+      if (wasRunning) {
+        startTimer();
+      } else {
+        // Keep paused state
+        timerState.isRunning = false;
+        playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
+      }
     }
   }
 }
