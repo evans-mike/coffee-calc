@@ -457,6 +457,35 @@ function startTimer() {
     startAccumulatedGramsInterval();
     // Timer starts from currentTime and counts up
     timerState.intervalId = setInterval(() => {
+        // Get total time (last step's timestamp)
+        const totalTime = timerState.steps.length > 0
+            ? timerState.steps.reduce((prev, current) => (current.timestamp > prev.timestamp) ? current : prev).timestamp
+            : 0;
+        // Check if we've reached or exceeded the total time
+        if (timerState.currentTime >= totalTime) {
+            // Stop the timer and pause
+            if (timerState.intervalId !== null) {
+                clearInterval(timerState.intervalId);
+                timerState.intervalId = null;
+            }
+            if (timerState.accumulatedGramsIntervalId !== null) {
+                clearInterval(timerState.accumulatedGramsIntervalId);
+                timerState.accumulatedGramsIntervalId = null;
+            }
+            timerState.isRunning = false;
+            timerState.currentTime = totalTime; // Set to exact total time
+            currentTimerDisplay.textContent = formatTime(totalTime);
+            playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
+            // Update accumulated grams to final total
+            if (timerState.steps.length > 0) {
+                const lastStep = timerState.steps.reduce((prev, current) => (current.timestamp > prev.timestamp) ? current : prev);
+                timerState.accumulatedGrams = lastStep.water ? parseInt(lastStep.water, 10) : 0;
+                accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
+            }
+            updateCurrentStepFromTime();
+            updateStepIndicator();
+            return;
+        }
         timerState.currentTime++;
         currentTimerDisplay.textContent = formatTime(timerState.currentTime);
         console.log("Timer tick:", timerState.currentTime);
@@ -793,9 +822,10 @@ function addRecipeStep(initialValues = null) {
             // Reset timer to beginning when recipe steps are edited
             resetTimerOnStepEdit();
             console.log("Updated step timestamp:", { wasCurrentStepIndex, newStepIndex: timerState.steps.indexOf(stepToUpdate), timestamp, wasCurrentStep });
-            updateUrlInBrowser();
         }
         updateTimestampDisplay();
+        // Always update URL after timestamp edit (even if step not found, the display changed)
+        updateUrlInBrowser();
     };
     minutesInput.addEventListener("blur", () => {
         updateTimerState();
