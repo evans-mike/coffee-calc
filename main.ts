@@ -897,15 +897,28 @@ function loadSharedRecipe(): void {
       const grindSizeInput = document.getElementById("grind-size") as HTMLInputElement;
       const waterTempInput = document.getElementById("water-temp") as HTMLInputElement;
       const notesTextarea = document.getElementById("additional-notes") as HTMLTextAreaElement;
+      const grindSizeSpan = document.getElementById("grind-size-span");
+      const waterTempSpan = document.getElementById("water-temp-span");
+      const notesSpan = document.getElementById("additional-notes-span");
       
-      if (recipeData.metadata.grindSize && grindSizeInput) {
+      if (grindSizeInput && recipeData.metadata.grindSize !== undefined && recipeData.metadata.grindSize !== null && recipeData.metadata.grindSize !== "") {
         grindSizeInput.value = recipeData.metadata.grindSize;
+        if (grindSizeSpan) {
+          grindSizeSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + recipeData.metadata.grindSize;
+        }
       }
-      if (recipeData.metadata.waterTemp && waterTempInput) {
+      if (waterTempInput && recipeData.metadata.waterTemp !== undefined && recipeData.metadata.waterTemp !== null && recipeData.metadata.waterTemp !== "") {
         waterTempInput.value = recipeData.metadata.waterTemp;
+        if (waterTempSpan) {
+          waterTempSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + recipeData.metadata.waterTemp;
+        }
       }
-      if (recipeData.metadata.notes && notesTextarea) {
+      if (notesTextarea && recipeData.metadata.notes !== undefined && recipeData.metadata.notes !== null) {
         notesTextarea.value = recipeData.metadata.notes;
+        if (notesSpan) {
+          // Show notes if present, otherwise show placeholder (matches blur handler logic)
+          notesSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (recipeData.metadata.notes || notesSpan.getAttribute("data-placeholder") || "");
+        }
       }
     }
 
