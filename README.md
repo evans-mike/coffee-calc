@@ -38,17 +38,26 @@ A simple, intuitive calculator for coffee brewing ratios with recipe steps funct
 ### Recipe Steps
 - **Add Multiple Steps**: Build complex multi-step recipes
 - **Step Components**:
-  - Water amount per step (grams)
+  - **Timestamp** (when the step begins): iOS-style time picker for minutes and seconds (e.g., 0:00, 0:30, 0:45)
+  - Water amount per step (grams) - displays with "g" suffix when entered
   - Step description (e.g., "Bloom", "First pour", "Final pour")
-  - Timer duration (MM:SS format with separate minute and second inputs)
+- **Timestamp Validation**:
+  - Each step's timestamp must be >= the previous step's timestamp
+  - When editing, timestamps are automatically validated and clamped to maintain proper ordering
+  - New steps default to the previous step's timestamp (or 0:00 for the first step)
 - **Timer Controls** (only visible when steps are added):
   - Start/Pause button to control timer
   - Previous/Next step navigation buttons
   - Reset timer button to restart from the beginning
   - Visual step indicator showing current step with description (e.g., "Step 2 of 4 - First pour")
-  - Current timer display showing remaining time for active step
+  - **Timer Display**:
+    - **Total Time**: Total recipe duration (H3 weight)
+    - **Count-up Timer**: Current elapsed time (H2 weight, counts up from 0:00)
+    - **Total Grams**: Total water amount across all steps (H3 weight)
+    - **Accumulated Grams**: Counter that increments smoothly during each step based on grams/second rate (integer only, increments independently from timer)
 - **Step Management**:
   - Remove individual steps with the × button
+  - Steps are automatically sorted by timestamp
   - Steps are automatically added to the timer when created
 
 ### Recipe Sharing & URL Persistence
@@ -77,6 +86,8 @@ A simple, intuitive calculator for coffee brewing ratios with recipe steps funct
 - **Grind Size**: Measured in micrometers (µm)
 - **Water Temperature**: Fahrenheit (°F)
 - **Time**: Minutes and seconds (MM:SS format)
+- **Accumulated Grams**: Integer only (e.g., "25g", "50g") - increments smoothly during each step
+- **Step Water Amounts**: Display with "g" suffix when entered (e.g., "50g")
 
 ## Usage Guide
 
@@ -91,22 +102,43 @@ A simple, intuitive calculator for coffee brewing ratios with recipe steps funct
 2. Set your grind size and water temperature preferences
 3. Click the "+" button to add recipe steps
 4. For each step:
-   - Enter the water amount for that pour
-   - Add a descriptive label (e.g., "Bloom for 30s")
-   - Set the timer duration in minutes and seconds
+   - **Set the timestamp** when the step begins (e.g., 0:00 for bloom, 0:30 for first pour)
+     - Click on the time display to edit minutes and seconds
+     - Timestamps must be in chronological order (>= previous step)
+     - New steps default to the previous step's timestamp (or 0:00 for the first step)
+   - **Enter the water amount** for that pour (grams)
+   - **Add a descriptive label** (e.g., "Bloom", "Heavy Spiral Pour")
 5. Timer controls will appear once you add your first step
 
 ### Using the Timer
 1. Once steps are added, use the timer controls at the bottom
-2. Click Play (▶) to start the timer for the current step
-3. The timer counts down and automatically advances to the next step when complete
-4. **Step Navigation with State Persistence**:
+2. Click Play (▶) to start the timer
+3. **Timer Behavior**:
+   - The timer **counts UP** from 0:00 (not down)
+   - Timer automatically advances to the next step when the elapsed time reaches that step's timestamp
+   - Example: If step 1 is at 0:00 and step 2 is at 0:30, step 2 will begin when the timer reaches 0:30
+4. **Accumulated Grams Counter**:
+   - Displays grams of water accumulated so far
+   - Increments smoothly during each step based on the step's grams/second rate
+   - Example: For a step with 50g over 30 seconds, it increments by 1g approximately every 0.6 seconds
+   - Shows only integer values (e.g., "25g", "50g")
+   - Operates independently from the 1-second timer tick
+5. **Timer Display**:
+   - **Total Time**: Shows the total recipe duration (from 0:00 to the last step's timestamp)
+   - **Count-up Timer**: Shows current elapsed time (H2, main display)
+   - **Total Grams**: Shows total water across all steps
+   - **Accumulated Grams**: Shows grams accumulated up to the current time (increments during active step)
+   - **Step Indicator**: Shows current step number and description (e.g., "Step 1 of 3 - Bloom")
+6. **Step Navigation with State Persistence**:
    - Use Previous (⏮) and Next (⏭) buttons to navigate between steps
-   - **If timer is playing**: When you navigate to another step, the timer automatically continues playing on the new step
-   - **If timer is paused**: When you navigate to another step, the timer remains paused on the new step
+   - **If timer is playing**: When you navigate to another step, the timer automatically continues playing on the new step at that step's timestamp
+   - **If timer is paused**: When you navigate to another step, the timer remains paused on the new step at that step's timestamp
    - This allows you to jump between steps while maintaining your play/pause state
-5. Click Pause (⏸) at any time to pause the timer
-6. Click Reset (↻) to restart from step 1 with the timer paused
+7. **Live Updates**:
+   - If the timer is paused and you edit a step's timestamp, description, or water amount, the timer display updates immediately
+   - This ensures the timer always reflects the current recipe state
+8. Click Pause (⏸) at any time to pause the timer
+9. Click Reset (↻) to restart from 0:00 with the timer paused
 
 ### Sharing Recipes
 - **Via URL**: Simply copy and share the current browser URL - it contains all your recipe data
@@ -208,7 +240,7 @@ let isReady: boolean = true;
 ```typescript
 // Defines what properties a recipe step should have
 interface RecipeStep {
-  duration: number;
+  timestamp: number;  // When the step begins (in seconds from 0:00)
   description: string;
   water?: string;  // The ? means this property is optional
 }
@@ -293,6 +325,17 @@ The calculator uses a smart tracking system:
 - Handles initial state where only the default ratio is set
 - Visual indicator (green dot) shows which field was calculated vs. manually entered
 
+### Timer Algorithm
+The timer uses a timestamp-based system:
+- **Steps are timestamped**: Each step specifies when it begins (e.g., 0:00, 0:30, 0:45), not how long it lasts
+- **Count-up timer**: Timer counts up from 0:00 and automatically advances to the next step when elapsed time reaches that step's timestamp
+- **Step duration calculation**: Duration is calculated as the time until the next step (or 30 seconds default for the last step)
+- **Accumulated grams**: Increments independently based on each step's grams/second rate
+  - Rate = step water amount / step duration
+  - Interval = 1000ms / rate (increments by 1g at calculated interval)
+  - Example: 40g over 30 seconds = 1.333g/s, so increments every ~750ms
+- **Timestamp validation**: Steps must be in chronological order (each step >= previous step)
+
 ## Keyboard Shortcuts
 
 ### Basic Navigation
@@ -314,11 +357,11 @@ The calculator supports intelligent TAB navigation that moves through fields in 
 6. Additional Notes
 
 **Recipe Steps** (for each step, in order):
-7. Water amount (grams)
-8. Step description
-9. Minutes (timer duration)
-10. Seconds (timer duration)
-11. → Moves to next step's water field (if exists)
+7. Timestamp minutes (when step begins)
+8. Timestamp seconds (when step begins)
+9. Step description
+10. Water amount (grams)
+11. → Moves to next step's timestamp minutes (if exists)
 
 **Navigation Details**:
 - Press **TAB** to move forward to the next field
