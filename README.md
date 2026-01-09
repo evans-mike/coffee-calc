@@ -290,9 +290,39 @@ The calculator uses a smart tracking system:
 - Visual indicator (green dot) shows which field was calculated vs. manually entered
 
 ## Keyboard Shortcuts
+
+### Basic Navigation
 - **Enter**: Save and close an editable field
 - **Click field**: Edit the field value
 - **Click away (blur)**: Save changes and trigger calculations
+
+### TAB Navigation (Desktop)
+The calculator supports intelligent TAB navigation that moves through fields in a logical order, skipping non-essential buttons:
+
+**Calculator Fields** (in order):
+1. Water (grams)
+2. Coffee (grams)
+3. Ratio (water:coffee)
+
+**Metadata Fields** (in order):
+4. Grind Size (µm)
+5. Water Temperature (°F)
+6. Additional Notes
+
+**Recipe Steps** (for each step, in order):
+7. Water amount (grams)
+8. Step description
+9. Minutes (timer duration)
+10. Seconds (timer duration)
+11. → Moves to next step's water field (if exists)
+
+**Navigation Details**:
+- Press **TAB** to move forward to the next field
+- Press **Shift+TAB** to move backward to the previous field
+- Remove buttons (×) are excluded from tab order - they can only be accessed via mouse/click
+- When TABbing to a field, it automatically enters edit mode (shows the input)
+- TAB navigation works seamlessly across calculator fields, metadata, and recipe steps
+- After the last field in the last recipe step, TAB continues to other focusable elements (buttons, etc.)
 
 ---
 

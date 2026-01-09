@@ -494,6 +494,44 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
     }
   });
 
+  // Helper function to handle TAB navigation within recipe steps
+  // Handles both Enter (to blur) and Tab (to navigate)
+  const setupStepTabNavigation = (input: HTMLInputElement, nextInputInStep: HTMLInputElement | null) => {
+    input.addEventListener("keydown", (event: Event) => {
+      const keyboardEvent = event as KeyboardEvent;
+      if (keyboardEvent.key === "Enter") {
+        input.blur();
+      } else if (keyboardEvent.key === "Tab" && !keyboardEvent.shiftKey) {
+        if (nextInputInStep) {
+          // Move to next input in this step
+          event.preventDefault();
+          const nextSpan = nextInputInStep.previousElementSibling as HTMLElement;
+          if (nextSpan && nextSpan.classList.contains("editable")) {
+            nextSpan.style.display = "none";
+            nextInputInStep.style.display = "inline";
+          }
+          nextInputInStep.focus();
+        } else {
+          // Last input in step - check for next step
+          const nextStep = stepElement.nextElementSibling;
+          if (nextStep) {
+            const nextStepWater = nextStep.querySelector('input[type="number"]:not(.time-input)') as HTMLInputElement;
+            if (nextStepWater) {
+              event.preventDefault();
+              const nextStepWaterSpan = nextStepWater.previousElementSibling as HTMLElement;
+              if (nextStepWaterSpan && nextStepWaterSpan.classList.contains("editable")) {
+                nextStepWaterSpan.style.display = "none";
+                nextStepWater.style.display = "inline";
+              }
+              nextStepWater.focus();
+            }
+          }
+          // Otherwise let default tab behavior continue
+        }
+      }
+    });
+  };
+
   // Assemble time container
   timeContainer.appendChild(minutesSpan);
   timeContainer.appendChild(minutesInput);
@@ -505,6 +543,7 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
   const removeButton = document.createElement("button");
   removeButton.className = "remove-step";
   removeButton.innerHTML = '<i class="fa-solid fa-times"></i>';
+  removeButton.tabIndex = -1; // Remove from tab order - use mouse/click to remove
   removeButton.addEventListener("click", () => {
     const stepIndex = Array.from(stepsContainer.children).indexOf(stepElement);
     timerState.steps.splice(stepIndex, 1);
@@ -557,12 +596,21 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
   // Attach event listeners to the new step's span and input elements
   attachEditableListeners(stepElement);
   
+  // Set up TAB navigation AFTER attachEditableListeners
+  // The handlers will work together - attachEditableListeners handles Enter, this handles Tab
+  // Order: water -> description -> minutes -> seconds -> next step
+  setupStepTabNavigation(stepWaterInput, descriptionInput);
+  setupStepTabNavigation(descriptionInput, minutesInput);
+  setupStepTabNavigation(minutesInput, secondsInput);
+  setupStepTabNavigation(secondsInput, null); // Last in step, will check for next step
+  
   updateUrlInBrowser();
 }
 
 // Attach event listeners to editable spans and inputs
 function attachEditableListeners(stepElement: Element): void {
   const editableSpans = stepElement.querySelectorAll(".editable");
+  const isRecipeStep = stepElement.classList.contains("recipe-step");
 
   editableSpans.forEach((span) => {
     const input = span.nextElementSibling as HTMLInputElement | HTMLTextAreaElement;
@@ -585,12 +633,15 @@ function attachEditableListeners(stepElement: Element): void {
       updateUrlInBrowser();
     });
 
-    input.addEventListener("keydown", (event: Event) => {
-      const keyboardEvent = event as KeyboardEvent;
-      if (keyboardEvent.key === "Enter") {
-        input.blur();
-      }
-    });
+    // Only add basic keydown handler if not a recipe step (recipe steps get TAB navigation separately)
+    if (!isRecipeStep) {
+      input.addEventListener("keydown", (event: Event) => {
+        const keyboardEvent = event as KeyboardEvent;
+        if (keyboardEvent.key === "Enter") {
+          input.blur();
+        }
+      });
+    }
   });
 }
 
@@ -868,6 +919,12 @@ waterInput.addEventListener("keydown", (event: Event) => {
   const keyboardEvent = event as KeyboardEvent;
   if (keyboardEvent.key === "Enter") {
     waterInput.blur();
+  } else if (keyboardEvent.key === "Tab" && !keyboardEvent.shiftKey) {
+    // Move to coffee input
+    event.preventDefault();
+    coffeeInput.style.display = "inline";
+    if (coffeeSpan) (coffeeSpan as HTMLElement).style.display = "none";
+    coffeeInput.focus();
   }
 });
 
@@ -886,6 +943,12 @@ coffeeInput.addEventListener("keydown", (event: Event) => {
   const keyboardEvent = event as KeyboardEvent;
   if (keyboardEvent.key === "Enter") {
     coffeeInput.blur();
+  } else if (keyboardEvent.key === "Tab" && !keyboardEvent.shiftKey) {
+    // Move to ratio select
+    event.preventDefault();
+    ratioSelect.style.display = "inline";
+    if (ratioSpan) (ratioSpan as HTMLElement).style.display = "none";
+    ratioSelect.focus();
   }
 });
 
@@ -903,6 +966,21 @@ ratioSelect.addEventListener("change", () => {
 ratioSelect.addEventListener("blur", () => {
   ratioSelect.style.display = "none";
   if (ratioSpan) (ratioSpan as HTMLElement).style.display = "inline";
+});
+
+ratioSelect.addEventListener("keydown", (event: Event) => {
+  const keyboardEvent = event as KeyboardEvent;
+  if (keyboardEvent.key === "Tab" && !keyboardEvent.shiftKey) {
+    // Move to grind-size input
+    event.preventDefault();
+    const grindSizeInput = document.getElementById("grind-size") as HTMLInputElement;
+    const grindSizeSpan = document.getElementById("grind-size-span");
+    if (grindSizeInput && grindSizeSpan) {
+      (grindSizeSpan as HTMLElement).style.display = "none";
+      grindSizeInput.style.display = "inline";
+      grindSizeInput.focus();
+    }
+  }
 });
 
 // Add event listeners for timer controls
@@ -959,6 +1037,44 @@ document.addEventListener("DOMContentLoaded", function () {
       const keyboardEvent = event as KeyboardEvent;
       if (keyboardEvent.key === "Enter") {
         input.blur();
+      } else if (keyboardEvent.key === "Tab" && !keyboardEvent.shiftKey) {
+        // Handle TAB navigation for metadata fields
+        event.preventDefault();
+        
+        if (input.id === "grind-size") {
+          // Move to water-temp
+          const waterTempInput = document.getElementById("water-temp") as HTMLInputElement;
+          const waterTempSpan = document.getElementById("water-temp-span");
+          if (waterTempInput && waterTempSpan) {
+            (waterTempSpan as HTMLElement).style.display = "none";
+            waterTempInput.style.display = "inline";
+            waterTempInput.focus();
+          }
+        } else if (input.id === "water-temp") {
+          // Move to notes
+          const notesInput = document.getElementById("additional-notes") as HTMLTextAreaElement;
+          const notesSpan = document.getElementById("additional-notes-span");
+          if (notesInput && notesSpan) {
+            (notesSpan as HTMLElement).style.display = "none";
+            notesInput.style.display = "inline";
+            notesInput.focus();
+          }
+        } else if (input.id === "additional-notes") {
+          // Move to first recipe step water input (if exists)
+          const firstStep = document.querySelector('.recipe-step');
+          if (firstStep) {
+            const firstStepWater = firstStep.querySelector('input[type="number"]:not(.time-input)') as HTMLInputElement;
+            if (firstStepWater) {
+              const firstStepWaterSpan = firstStepWater.previousElementSibling as HTMLElement;
+              if (firstStepWaterSpan && firstStepWaterSpan.classList.contains("editable")) {
+                firstStepWaterSpan.style.display = "none";
+                firstStepWater.style.display = "inline";
+              }
+              firstStepWater.focus();
+            }
+          }
+          // Otherwise let default tab behavior continue
+        }
       }
     });
   });
