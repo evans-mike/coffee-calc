@@ -117,7 +117,7 @@ function updateStepIndicator() {
   const timerControls = document.querySelector(".timer-controls");
   if (timerState.steps.length === 0) {
     stepIndicator.textContent = "No steps added";
-    stepDetails.textContent = "";
+    if (stepDetails) stepDetails.textContent = "";
     timerControls.style.display = "none"; // Hide timer controls
     return;
   }
@@ -126,8 +126,8 @@ function updateStepIndicator() {
   }`;
   
   const currentStep = timerState.steps[timerState.currentStep];
-  stepDetails.textContent = `Step ${timerState.currentStep + 1} - Add ${currentStep.water}g of water to ${currentStep.description} for ${formatTime(currentStep.duration)}`;
-  timerControls.style.display = "block"; // Show timer controls
+  if (stepDetails) stepDetails.textContent = `Step ${timerState.currentStep + 1} - Add ${currentStep.water}g of water to ${currentStep.description} for ${formatTime(currentStep.duration)}`;
+  timerControls.style.display = "flex"; // Show timer controls
 }
 
 function togglePlayPause() {
@@ -410,7 +410,7 @@ function addRecipeStep(initialValues = null) {
   if (timerState.steps.length === 1) {
     timerState.currentTime = duration;
     currentTimerDisplay.textContent = formatTime(duration);
-    timerControls.style.display = "block"; // Show timer controls
+    timerControls.style.display = "flex"; // Show timer controls
   }
 
   updateStepIndicator();
@@ -644,7 +644,7 @@ function loadSharedRecipe() {
     // Show timer controls if there are steps
     const timerControls = document.querySelector(".timer-controls");
     if (recipeData.steps.length > 0) {
-      timerControls.style.display = "block";
+      timerControls.style.display = "flex";
     } else {
       timerControls.style.display = "none";
     }
