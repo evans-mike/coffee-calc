@@ -1,18 +1,13 @@
 // Type definitions
-declare const LZString: {
-  compressToEncodedURIComponent: (data: string) => string;
-  decompressFromEncodedURIComponent: (data: string) => string | null;
-};
-
 type CalculatorField = "water" | "coffee" | "ratio";
 
-interface StepData {
+interface RecipeStep {
   duration: number;
   description: string;
-  water?: number;
+  water?: string;
 }
 
-interface RecipeStepInitialValues {
+interface StepInitialValues {
   water: string;
   description: string;
   minutes: string;
@@ -30,21 +25,21 @@ interface RecipeData {
     waterTemp: string;
     notes: string;
   };
-  steps: RecipeStepInitialValues[];
-}
-
-interface TimerState {
-  isRunning: boolean;
-  currentTime: number;
-  currentStep: number;
-  steps: StepData[];
-  intervalId: ReturnType<typeof setInterval> | null;
+  steps: StepInitialValues[];
 }
 
 // Global state variables
 let lastUpdated: CalculatorField[] = []; // Track the order of user updates (not including default values)
 
 // Timer State Management
+interface TimerState {
+  isRunning: boolean;
+  currentTime: number;
+  currentStep: number;
+  steps: RecipeStep[];
+  intervalId: ReturnType<typeof setInterval> | null;
+}
+
 const timerState: TimerState = {
   isRunning: false,
   currentTime: 0,
@@ -53,19 +48,20 @@ const timerState: TimerState = {
   intervalId: null,
 };
 
-// Get DOM elements
-const waterInput = document.getElementById("water") as HTMLInputElement;
-const coffeeInput = document.getElementById("coffee") as HTMLInputElement;
-const ratioSelect = document.getElementById("ratio") as HTMLSelectElement;
+// Get DOM elements with type assertions
+// Using non-null assertion (!) since these elements are required in the HTML
+const waterInput = document.getElementById("water")! as HTMLInputElement;
+const coffeeInput = document.getElementById("coffee")! as HTMLInputElement;
+const ratioSelect = document.getElementById("ratio")! as HTMLSelectElement;
 
 // Timer Control Elements
-const playPauseBtn = document.getElementById("play-pause") as HTMLButtonElement;
-const prevStepBtn = document.getElementById("prev-step") as HTMLButtonElement;
-const nextStepBtn = document.getElementById("next-step") as HTMLButtonElement;
-const resetTimerBtn = document.getElementById("reset-timer") as HTMLButtonElement;
-const currentTimerDisplay = document.getElementById("current-timer") as HTMLElement;
-const stepIndicator = document.getElementById("step-indicator") as HTMLElement;
-const stepDetails = document.getElementById("step-details") as HTMLElement | null;
+const playPauseBtn = document.getElementById("play-pause")! as HTMLButtonElement;
+const prevStepBtn = document.getElementById("prev-step")! as HTMLButtonElement;
+const nextStepBtn = document.getElementById("next-step")! as HTMLButtonElement;
+const resetTimerBtn = document.getElementById("reset-timer")! as HTMLButtonElement;
+const currentTimerDisplay = document.getElementById("current-timer")! as HTMLDivElement;
+const stepIndicator = document.getElementById("step-indicator")! as HTMLDivElement;
+const stepDetails = document.getElementById("step-details") as HTMLDivElement | null;
 
 // Reset all inputs and reload the page
 function resetAllInputs(): void {
@@ -152,7 +148,7 @@ function updateLastTouched(inputType: CalculatorField): void {
 function calculateBasedOnLastUpdates(): void {
   const water = parseFloat(waterInput.value);
   const coffee = parseFloat(coffeeInput.value);
-  const ratio = parseInt(ratioSelect.value);
+  const ratio = parseInt(ratioSelect.value, 10);
 
   // Determine which fields have values (including defaults)
   const fieldsWithValues: CalculatorField[] = [];
@@ -229,7 +225,7 @@ function formatTime(seconds: number): string {
 }
 
 function updateStepIndicator(): void {
-  const timerControls = document.querySelector(".timer-controls") as HTMLElement;
+  const timerControls = document.querySelector(".timer-controls") as HTMLElement | null;
   if (!timerControls) return;
   
   if (timerState.steps.length === 0) {
@@ -243,8 +239,8 @@ function updateStepIndicator(): void {
   }`;
   
   const currentStep = timerState.steps[timerState.currentStep];
-  if (stepDetails && currentStep) {
-    stepDetails.textContent = `Step ${timerState.currentStep + 1} - Add ${currentStep.water || 0}g of water to ${currentStep.description} for ${formatTime(currentStep.duration)}`;
+  if (stepDetails && currentStep && currentStep.water) {
+    stepDetails.textContent = `Step ${timerState.currentStep + 1} - Add ${currentStep.water}g of water to ${currentStep.description} for ${formatTime(currentStep.duration)}`;
   }
   timerControls.style.display = "flex"; // Show timer controls
 }
@@ -259,15 +255,15 @@ function togglePlayPause(): void {
 
   if (timerState.isRunning) {
     console.log("Pausing timer");
-    if (timerState.intervalId) {
+    if (timerState.intervalId !== null) {
       clearInterval(timerState.intervalId);
     }
     playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
   } else {
     console.log("Starting timer");
-    if (!timerState.currentTime && timerState.steps[timerState.currentStep]) {
-      timerState.currentTime =
-        timerState.steps[timerState.currentStep].duration;
+    const currentStep = timerState.steps[timerState.currentStep];
+    if (!timerState.currentTime && currentStep) {
+      timerState.currentTime = currentStep.duration;
     }
     timerState.intervalId = setInterval(() => {
       if (timerState.currentTime > 0) {
@@ -280,7 +276,7 @@ function togglePlayPause(): void {
           nextStep();
         } else {
           console.log("All steps completed");
-          if (timerState.intervalId) {
+          if (timerState.intervalId !== null) {
             clearInterval(timerState.intervalId);
           }
           timerState.isRunning = false;
@@ -303,55 +299,63 @@ function updateStepButtons(): void {
 function previousStep(): void {
   console.log("Previous step called");
   if (timerState.currentStep > 0) {
-    if (timerState.isRunning && timerState.intervalId) {
-      clearInterval(timerState.intervalId);
+    if (timerState.isRunning) {
+      if (timerState.intervalId !== null) {
+        clearInterval(timerState.intervalId);
+      }
       timerState.isRunning = false;
       playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
     }
     timerState.currentStep--;
     const step = timerState.steps[timerState.currentStep];
-    timerState.currentTime = step.duration;
-    currentTimerDisplay.textContent = formatTime(timerState.currentTime);
-    console.log("Moved to previous step:", {
-      currentStep: timerState.currentStep,
-      duration: step.duration,
-      description: step.description,
-    });
-    updateStepIndicator();
-    updateStepButtons();
+    if (step) {
+      timerState.currentTime = step.duration;
+      currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+      console.log("Moved to previous step:", {
+        currentStep: timerState.currentStep,
+        duration: step.duration,
+        description: step.description,
+      });
+      updateStepIndicator();
+      updateStepButtons();
+    }
   }
 }
 
 function nextStep(): void {
   console.log("Next step called");
   if (timerState.currentStep < timerState.steps.length - 1) {
-    if (timerState.isRunning && timerState.intervalId) {
-      clearInterval(timerState.intervalId);
+    if (timerState.isRunning) {
+      if (timerState.intervalId !== null) {
+        clearInterval(timerState.intervalId);
+      }
       timerState.isRunning = false;
       playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
     }
     timerState.currentStep++;
     const step = timerState.steps[timerState.currentStep];
-    timerState.currentTime = step.duration;
-    currentTimerDisplay.textContent = formatTime(timerState.currentTime);
-    console.log("Moved to next step:", {
-      currentStep: timerState.currentStep,
-      duration: step.duration,
-      description: step.description,
-    });
-    updateStepIndicator();
-    updateStepButtons();
+    if (step) {
+      timerState.currentTime = step.duration;
+      currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+      console.log("Moved to next step:", {
+        currentStep: timerState.currentStep,
+        duration: step.duration,
+        description: step.description,
+      });
+      updateStepIndicator();
+      updateStepButtons();
+    }
   }
 }
 
 function resetTimer(): void {
   console.log("Reset timer called");
-  if (timerState.intervalId) {
+  if (timerState.intervalId !== null) {
     clearInterval(timerState.intervalId);
   }
   timerState.isRunning = false;
   timerState.currentStep = 0;
-  if (timerState.steps.length > 0) {
+  if (timerState.steps.length > 0 && timerState.steps[0]) {
     timerState.currentTime = timerState.steps[0].duration;
     currentTimerDisplay.textContent = formatTime(timerState.currentTime);
   } else {
@@ -373,7 +377,7 @@ function parseStepDuration(minutesInput: HTMLInputElement, secondsInput: HTMLInp
 }
 
 // Recipe step functions
-function addRecipeStep(initialValues: RecipeStepInitialValues | null = null): void {
+function addRecipeStep(initialValues: StepInitialValues | null = null): void {
   const stepsContainer = document.getElementById("recipe-steps");
   if (!stepsContainer) return;
   
@@ -384,16 +388,16 @@ function addRecipeStep(initialValues: RecipeStepInitialValues | null = null): vo
   const waterSpan = document.createElement("span");
   waterSpan.className = "editable";
   waterSpan.setAttribute("data-placeholder", "Water (g)");
-  const waterInput = document.createElement("input");
-  waterInput.type = "number";
-  waterInput.min = "0";
-  waterInput.step = "1";
-  waterInput.inputMode = "numeric";
-  waterInput.pattern = "[0-9]*";
-  waterInput.placeholder = "Water (g)";
-  waterInput.style.display = "none";
+  const stepWaterInput = document.createElement("input");
+  stepWaterInput.type = "number";
+  stepWaterInput.min = "0";
+  stepWaterInput.step = "1";
+  stepWaterInput.inputMode = "numeric";
+  stepWaterInput.pattern = "[0-9]*";
+  stepWaterInput.placeholder = "Water (g)";
+  stepWaterInput.style.display = "none";
   if (initialValues) {
-    waterInput.value = initialValues.water;
+    stepWaterInput.value = initialValues.water;
     waterSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + initialValues.water;
   } else {
     waterSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + waterSpan.getAttribute("data-placeholder");
@@ -490,6 +494,44 @@ function addRecipeStep(initialValues: RecipeStepInitialValues | null = null): vo
     }
   });
 
+  // Helper function to handle TAB navigation within recipe steps
+  // Handles both Enter (to blur) and Tab (to navigate)
+  const setupStepTabNavigation = (input: HTMLInputElement, nextInputInStep: HTMLInputElement | null) => {
+    input.addEventListener("keydown", (event: Event) => {
+      const keyboardEvent = event as KeyboardEvent;
+      if (keyboardEvent.key === "Enter") {
+        input.blur();
+      } else if (keyboardEvent.key === "Tab" && !keyboardEvent.shiftKey) {
+        if (nextInputInStep) {
+          // Move to next input in this step
+          event.preventDefault();
+          const nextSpan = nextInputInStep.previousElementSibling as HTMLElement;
+          if (nextSpan && nextSpan.classList.contains("editable")) {
+            nextSpan.style.display = "none";
+            nextInputInStep.style.display = "inline";
+          }
+          nextInputInStep.focus();
+        } else {
+          // Last input in step - check for next step
+          const nextStep = stepElement.nextElementSibling;
+          if (nextStep) {
+            const nextStepWater = nextStep.querySelector('input[type="number"]:not(.time-input)') as HTMLInputElement;
+            if (nextStepWater) {
+              event.preventDefault();
+              const nextStepWaterSpan = nextStepWater.previousElementSibling as HTMLElement;
+              if (nextStepWaterSpan && nextStepWaterSpan.classList.contains("editable")) {
+                nextStepWaterSpan.style.display = "none";
+                nextStepWater.style.display = "inline";
+              }
+              nextStepWater.focus();
+            }
+          }
+          // Otherwise let default tab behavior continue
+        }
+      }
+    });
+  };
+
   // Assemble time container
   timeContainer.appendChild(minutesSpan);
   timeContainer.appendChild(minutesInput);
@@ -501,6 +543,7 @@ function addRecipeStep(initialValues: RecipeStepInitialValues | null = null): vo
   const removeButton = document.createElement("button");
   removeButton.className = "remove-step";
   removeButton.innerHTML = '<i class="fa-solid fa-times"></i>';
+  removeButton.tabIndex = -1; // Remove from tab order - use mouse/click to remove
   removeButton.addEventListener("click", () => {
     const stepIndex = Array.from(stepsContainer.children).indexOf(stepElement);
     timerState.steps.splice(stepIndex, 1);
@@ -512,9 +555,11 @@ function addRecipeStep(initialValues: RecipeStepInitialValues | null = null): vo
       timerState.currentTime = 0;
       currentTimerDisplay.textContent = "00:00";
     } else if (!timerState.isRunning) {
-      timerState.currentTime =
-        timerState.steps[timerState.currentStep].duration;
-      currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+      const step = timerState.steps[timerState.currentStep];
+      if (step) {
+        timerState.currentTime = step.duration;
+        currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+      }
     }
     updateStepIndicator();
     updateStepButtons();
@@ -523,7 +568,7 @@ function addRecipeStep(initialValues: RecipeStepInitialValues | null = null): vo
 
   // Assemble step
   stepElement.appendChild(waterSpan);
-  stepElement.appendChild(waterInput);
+  stepElement.appendChild(stepWaterInput);
   stepElement.appendChild(descriptionSpan);
   stepElement.appendChild(descriptionInput);
   stepElement.appendChild(timeContainer);
@@ -535,14 +580,13 @@ function addRecipeStep(initialValues: RecipeStepInitialValues | null = null): vo
   const duration = parseStepDuration(minutesInput, secondsInput);
   const description =
     descriptionInput.value || `Step ${timerState.steps.length + 1}`;
-  const stepWater = parseInt(waterInput.value || "0", 10);
-  timerState.steps.push({ duration, description, water: stepWater });
+  timerState.steps.push({ duration, description, water: stepWaterInput.value || undefined });
 
-  const timerControls = document.querySelector(".timer-controls") as HTMLElement;
-  if (timerState.steps.length === 1 && timerControls) {
+  if (timerState.steps.length === 1) {
     timerState.currentTime = duration;
     currentTimerDisplay.textContent = formatTime(duration);
-    timerControls.style.display = "flex"; // Show timer controls
+    const timerControls = document.querySelector(".timer-controls") as HTMLElement;
+    if (timerControls) timerControls.style.display = "flex"; // Show timer controls
   }
 
   updateStepIndicator();
@@ -552,39 +596,52 @@ function addRecipeStep(initialValues: RecipeStepInitialValues | null = null): vo
   // Attach event listeners to the new step's span and input elements
   attachEditableListeners(stepElement);
   
+  // Set up TAB navigation AFTER attachEditableListeners
+  // The handlers will work together - attachEditableListeners handles Enter, this handles Tab
+  // Order: water -> description -> minutes -> seconds -> next step
+  setupStepTabNavigation(stepWaterInput, descriptionInput);
+  setupStepTabNavigation(descriptionInput, minutesInput);
+  setupStepTabNavigation(minutesInput, secondsInput);
+  setupStepTabNavigation(secondsInput, null); // Last in step, will check for next step
+  
   updateUrlInBrowser();
 }
 
 // Attach event listeners to editable spans and inputs
-function attachEditableListeners(stepElement: HTMLElement): void {
+function attachEditableListeners(stepElement: Element): void {
   const editableSpans = stepElement.querySelectorAll(".editable");
+  const isRecipeStep = stepElement.classList.contains("recipe-step");
 
   editableSpans.forEach((span) => {
-    const input = span.nextElementSibling as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+    const input = span.nextElementSibling as HTMLInputElement | HTMLTextAreaElement;
     if (!input) return;
     
     span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (input.value || span.getAttribute("data-placeholder"));
     input.style.display = "none";
 
-    span.addEventListener("click", function () {
-      this.style.display = "none";
+    span.addEventListener("click", () => {
+      (span as HTMLElement).style.display = "none";
       input.style.display = "inline";
-      if (input.focus) input.focus();
+      input.focus();
     });
 
-    input.addEventListener("blur", function () {
-      span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (this.value || span.getAttribute("data-placeholder"));
-      this.style.display = "none";
-      span.style.display = "inline";
+    input.addEventListener("blur", () => {
+      span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (input.value || span.getAttribute("data-placeholder"));
+      input.style.display = "none";
+      (span as HTMLElement).style.display = "inline";
       // Update URL when recipe step fields are edited
       updateUrlInBrowser();
     });
 
-    input.addEventListener("keydown", function (event: KeyboardEvent) {
-      if (event.key === "Enter") {
-        this.blur();
-      }
-    });
+    // Only add basic keydown handler if not a recipe step (recipe steps get TAB navigation separately)
+    if (!isRecipeStep) {
+      input.addEventListener("keydown", (event: Event) => {
+        const keyboardEvent = event as KeyboardEvent;
+        if (keyboardEvent.key === "Enter") {
+          input.blur();
+        }
+      });
+    }
   });
 }
 
@@ -621,14 +678,14 @@ function buildUrlWithValues(): string {
       ratio: ratioSelect.value,
     },
     metadata: {
-      grindSize: (document.getElementById("grind-size") as HTMLInputElement).value,
-      waterTemp: (document.getElementById("water-temp") as HTMLInputElement).value,
-      notes: (document.getElementById("additional-notes") as HTMLTextAreaElement).value,
+      grindSize: (document.getElementById("grind-size") as HTMLInputElement)?.value || "",
+      waterTemp: (document.getElementById("water-temp") as HTMLInputElement)?.value || "",
+      notes: (document.getElementById("additional-notes") as HTMLTextAreaElement)?.value || "",
     },
     steps: Array.from(document.querySelectorAll(".recipe-step")).map(
       (step) => ({
-        water: (step.querySelector('input[type="number"]') as HTMLInputElement).value,
-        description: (step.querySelector('input[type="text"]') as HTMLInputElement).value,
+        water: (step.querySelector('input[type="number"]') as HTMLInputElement)?.value || "",
+        description: (step.querySelector('input[type="text"]') as HTMLInputElement)?.value || "",
         minutes: (step.querySelector(".minutes") as HTMLInputElement)?.value || "0",
         seconds: (step.querySelector(".seconds") as HTMLInputElement)?.value || "0",
       })
@@ -649,7 +706,7 @@ let isUpdatingFromUrl = false;
 let updateUrlTimeout: ReturnType<typeof setTimeout> | null = null;
 function updateUrlInBrowser(): void {
   // Clear any pending update
-  if (updateUrlTimeout) {
+  if (updateUrlTimeout !== null) {
     clearTimeout(updateUrlTimeout);
   }
   
@@ -666,9 +723,9 @@ function generateRecipeMarkdown(): string {
   const water = waterInput.value;
   const coffee = coffeeInput.value;
   const ratio = ratioSelect.value;
-  const grindSize = (document.getElementById("grind-size") as HTMLInputElement).value;
-  const waterTemp = (document.getElementById("water-temp") as HTMLInputElement).value;
-  const notes = (document.getElementById("additional-notes") as HTMLTextAreaElement).value;
+  const grindSize = (document.getElementById("grind-size") as HTMLInputElement)?.value || "";
+  const waterTemp = (document.getElementById("water-temp") as HTMLInputElement)?.value || "";
+  const notes = (document.getElementById("additional-notes") as HTMLTextAreaElement)?.value || "";
   const steps = Array.from(document.querySelectorAll(".recipe-step"));
 
   let markdown = `# Coffee Recipe\n\n`;
@@ -681,14 +738,14 @@ function generateRecipeMarkdown(): string {
 
   markdown += `## Steps\n`;
   steps.forEach((step, index) => {
-    const stepWater = (step.querySelector('input[type="number"]') as HTMLInputElement).value;
-    const description = (step.querySelector('input[type="text"]') as HTMLInputElement).value;
+    const water = (step.querySelector('input[type="number"]') as HTMLInputElement)?.value || "";
+    const description = (step.querySelector('input[type="text"]') as HTMLInputElement)?.value || "";
     const minutes = (step.querySelector(".minutes") as HTMLInputElement)?.value || "0";
     const seconds = (step.querySelector(".seconds") as HTMLInputElement)?.value || "0";
 
     markdown += `${
       index + 1
-    }. Pour ${stepWater}g - ${description} (${minutes}:${seconds.padStart(
+    }. Pour ${water}g - ${description} (${minutes}:${seconds.padStart(
       2,
       "0"
     )})\n`;
@@ -772,7 +829,7 @@ function loadSharedRecipe(): void {
   try {
     const jsonString = LZString.decompressFromEncodedURIComponent(compressedData);
     if (!jsonString) {
-      throw new Error("Failed to decompress data");
+      throw new Error("Failed to decompress recipe data");
     }
     const recipeData: RecipeData = JSON.parse(jsonString);
 
@@ -796,7 +853,7 @@ function loadSharedRecipe(): void {
     if (recipeData.metadata) {
       const grindSizeInput = document.getElementById("grind-size") as HTMLInputElement;
       const waterTempInput = document.getElementById("water-temp") as HTMLInputElement;
-      const notesInput = document.getElementById("additional-notes") as HTMLTextAreaElement;
+      const notesTextarea = document.getElementById("additional-notes") as HTMLTextAreaElement;
       
       if (recipeData.metadata.grindSize && grindSizeInput) {
         grindSizeInput.value = recipeData.metadata.grindSize;
@@ -804,8 +861,8 @@ function loadSharedRecipe(): void {
       if (recipeData.metadata.waterTemp && waterTempInput) {
         waterTempInput.value = recipeData.metadata.waterTemp;
       }
-      if (recipeData.metadata.notes && notesInput) {
-        notesInput.value = recipeData.metadata.notes;
+      if (recipeData.metadata.notes && notesTextarea) {
+        notesTextarea.value = recipeData.metadata.notes;
       }
     }
 
@@ -850,7 +907,7 @@ const ratioSpan = document.getElementById("ratio-span");
 waterInput.addEventListener("blur", () => {
   updateCalculatorSpanDisplay("water", waterInput.value);
   waterInput.style.display = "none";
-  if (waterSpan) waterSpan.style.display = "inline";
+  if (waterSpan) (waterSpan as HTMLElement).style.display = "inline";
   removeCalculatedIndicator("water"); // Remove calculated indicator when user edits
   if (waterInput.value !== "") {
     updateLastTouched("water");
@@ -858,16 +915,23 @@ waterInput.addEventListener("blur", () => {
   updateUrlInBrowser();
 });
 
-waterInput.addEventListener("keydown", (event: KeyboardEvent) => {
-  if (event.key === "Enter") {
+waterInput.addEventListener("keydown", (event: Event) => {
+  const keyboardEvent = event as KeyboardEvent;
+  if (keyboardEvent.key === "Enter") {
     waterInput.blur();
+  } else if (keyboardEvent.key === "Tab" && !keyboardEvent.shiftKey) {
+    // Move to coffee input
+    event.preventDefault();
+    coffeeInput.style.display = "inline";
+    if (coffeeSpan) (coffeeSpan as HTMLElement).style.display = "none";
+    coffeeInput.focus();
   }
 });
 
 coffeeInput.addEventListener("blur", () => {
   updateCalculatorSpanDisplay("coffee", coffeeInput.value);
   coffeeInput.style.display = "none";
-  if (coffeeSpan) coffeeSpan.style.display = "inline";
+  if (coffeeSpan) (coffeeSpan as HTMLElement).style.display = "inline";
   removeCalculatedIndicator("coffee"); // Remove calculated indicator when user edits
   if (coffeeInput.value !== "") {
     updateLastTouched("coffee");
@@ -875,16 +939,23 @@ coffeeInput.addEventListener("blur", () => {
   updateUrlInBrowser();
 });
 
-coffeeInput.addEventListener("keydown", (event: KeyboardEvent) => {
-  if (event.key === "Enter") {
+coffeeInput.addEventListener("keydown", (event: Event) => {
+  const keyboardEvent = event as KeyboardEvent;
+  if (keyboardEvent.key === "Enter") {
     coffeeInput.blur();
+  } else if (keyboardEvent.key === "Tab" && !keyboardEvent.shiftKey) {
+    // Move to ratio select
+    event.preventDefault();
+    ratioSelect.style.display = "inline";
+    if (ratioSpan) (ratioSpan as HTMLElement).style.display = "none";
+    ratioSelect.focus();
   }
 });
 
 ratioSelect.addEventListener("change", () => {
   updateCalculatorSpanDisplay("ratio", ratioSelect.value);
   ratioSelect.style.display = "none";
-  if (ratioSpan) ratioSpan.style.display = "inline";
+  if (ratioSpan) (ratioSpan as HTMLElement).style.display = "inline";
   removeCalculatedIndicator("ratio"); // Remove calculated indicator when user edits
   if (ratioSelect.value !== "") {
     updateLastTouched("ratio");
@@ -894,7 +965,22 @@ ratioSelect.addEventListener("change", () => {
 
 ratioSelect.addEventListener("blur", () => {
   ratioSelect.style.display = "none";
-  if (ratioSpan) ratioSpan.style.display = "inline";
+  if (ratioSpan) (ratioSpan as HTMLElement).style.display = "inline";
+});
+
+ratioSelect.addEventListener("keydown", (event: Event) => {
+  const keyboardEvent = event as KeyboardEvent;
+  if (keyboardEvent.key === "Tab" && !keyboardEvent.shiftKey) {
+    // Move to grind-size input
+    event.preventDefault();
+    const grindSizeInput = document.getElementById("grind-size") as HTMLInputElement;
+    const grindSizeSpan = document.getElementById("grind-size-span");
+    if (grindSizeInput && grindSizeSpan) {
+      (grindSizeSpan as HTMLElement).style.display = "none";
+      grindSizeInput.style.display = "inline";
+      grindSizeInput.focus();
+    }
+  }
 });
 
 // Add event listeners for timer controls
@@ -921,59 +1007,98 @@ document.addEventListener("DOMContentLoaded", function () {
   const editableSpans = document.querySelectorAll(".editable");
 
   editableSpans.forEach((span) => {
-    const input = span.nextElementSibling as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+    const input = span.nextElementSibling as HTMLInputElement | HTMLTextAreaElement;
     if (!input) return;
     
     // Skip calculator fields - they will be handled separately
-    if (span.id === "water-span" || span.id === "coffee-span" || span.id === "ratio-span") {
+    if ((span as HTMLElement).id === "water-span" || (span as HTMLElement).id === "coffee-span" || (span as HTMLElement).id === "ratio-span") {
       return;
     }
     span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (input.value || span.getAttribute("data-placeholder"));
     input.style.display = "none";
 
-    span.addEventListener("click", function () {
-      this.style.display = "none";
+    span.addEventListener("click", () => {
+      (span as HTMLElement).style.display = "none";
       input.style.display = "inline";
-      if (input.focus) input.focus();
+      input.focus();
     });
 
-    input.addEventListener("blur", function () {
-      span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (this.value || span.getAttribute("data-placeholder"));
-      this.style.display = "none";
-      span.style.display = "inline";
+    input.addEventListener("blur", () => {
+      span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (input.value || span.getAttribute("data-placeholder"));
+      input.style.display = "none";
+      (span as HTMLElement).style.display = "inline";
       // Update URL for metadata fields
-      if (this.id === "grind-size" || this.id === "water-temp" || this.id === "additional-notes") {
+      if (input.id === "grind-size" || input.id === "water-temp" || input.id === "additional-notes") {
         updateUrlInBrowser();
       }
     });
 
-    input.addEventListener("keydown", function (event: KeyboardEvent) {
-      if (event.key === "Enter") {
-        this.blur();
+    input.addEventListener("keydown", (event: Event) => {
+      const keyboardEvent = event as KeyboardEvent;
+      if (keyboardEvent.key === "Enter") {
+        input.blur();
+      } else if (keyboardEvent.key === "Tab" && !keyboardEvent.shiftKey) {
+        // Handle TAB navigation for metadata fields
+        event.preventDefault();
+        
+        if (input.id === "grind-size") {
+          // Move to water-temp
+          const waterTempInput = document.getElementById("water-temp") as HTMLInputElement;
+          const waterTempSpan = document.getElementById("water-temp-span");
+          if (waterTempInput && waterTempSpan) {
+            (waterTempSpan as HTMLElement).style.display = "none";
+            waterTempInput.style.display = "inline";
+            waterTempInput.focus();
+          }
+        } else if (input.id === "water-temp") {
+          // Move to notes
+          const notesInput = document.getElementById("additional-notes") as HTMLTextAreaElement;
+          const notesSpan = document.getElementById("additional-notes-span");
+          if (notesInput && notesSpan) {
+            (notesSpan as HTMLElement).style.display = "none";
+            notesInput.style.display = "inline";
+            notesInput.focus();
+          }
+        } else if (input.id === "additional-notes") {
+          // Move to first recipe step water input (if exists)
+          const firstStep = document.querySelector('.recipe-step');
+          if (firstStep) {
+            const firstStepWater = firstStep.querySelector('input[type="number"]:not(.time-input)') as HTMLInputElement;
+            if (firstStepWater) {
+              const firstStepWaterSpan = firstStepWater.previousElementSibling as HTMLElement;
+              if (firstStepWaterSpan && firstStepWaterSpan.classList.contains("editable")) {
+                firstStepWaterSpan.style.display = "none";
+                firstStepWater.style.display = "inline";
+              }
+              firstStepWater.focus();
+            }
+          }
+          // Otherwise let default tab behavior continue
+        }
       }
     });
   });
 
   // Initialize calculator spans and add click handlers
   if (waterSpan) {
-    waterSpan.addEventListener("click", function () {
-      this.style.display = "none";
+    waterSpan.addEventListener("click", () => {
+      waterSpan.style.display = "none";
       waterInput.style.display = "inline";
       waterInput.focus();
     });
   }
   
   if (coffeeSpan) {
-    coffeeSpan.addEventListener("click", function () {
-      this.style.display = "none";
+    coffeeSpan.addEventListener("click", () => {
+      coffeeSpan.style.display = "none";
       coffeeInput.style.display = "inline";
       coffeeInput.focus();
     });
   }
   
   if (ratioSpan) {
-    ratioSpan.addEventListener("click", function () {
-      this.style.display = "none";
+    ratioSpan.addEventListener("click", () => {
+      ratioSpan.style.display = "none";
       ratioSelect.style.display = "inline";
       ratioSelect.focus();
     });
@@ -992,8 +1117,8 @@ document.addEventListener("DOMContentLoaded", function () {
   updateStepIndicator();
   updateStepButtons();
   // Add event listener for reset button
-  const resetButton = document.getElementById("reset-button");
-  if (resetButton) {
-    resetButton.addEventListener("click", resetAllInputs);
+  const resetBtn = document.getElementById("reset-button");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", resetAllInputs);
   }
 });

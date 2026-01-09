@@ -113,12 +113,164 @@ A simple, intuitive calculator for coffee brewing ratios with recipe steps funct
 - Toggle the theme switch in the header to switch between light and dark modes
 - Your preference is automatically saved for future visits
 
+## Developer Setup & Compilation
+
+This project uses **TypeScript**, which is JavaScript with type annotations. If you're familiar with JavaScript, TypeScript will feel familiar—it's just JavaScript with extra features that help catch errors before runtime.
+
+### Prerequisites
+
+Before you begin, make sure you have:
+- **Node.js** (version 14 or higher) - [Download here](https://nodejs.org/)
+- **npm** (comes with Node.js) - Used to install dependencies
+
+You can check if you have these installed by running in your terminal:
+```bash
+node --version
+npm --version
+```
+
+### Understanding TypeScript vs JavaScript
+
+- **`main.ts`** - This is the TypeScript source file you edit
+- **`main.js`** - This is the compiled JavaScript file that runs in the browser
+- TypeScript adds types (like `string`, `number`, `boolean`) to help catch errors
+- The browser can't run TypeScript directly, so it must be compiled to JavaScript first
+
+### Installation
+
+1. **Navigate to the project directory**:
+   ```bash
+   cd coffee-calc
+   ```
+
+2. **Install dependencies** (this installs TypeScript and other development tools):
+   ```bash
+   npm install
+   ```
+   
+   This reads `package.json` and installs TypeScript in the `node_modules` folder.
+
+### Building the Project
+
+After making changes to `main.ts`, you need to compile it to JavaScript:
+
+**One-time build**:
+```bash
+npm run build
+```
+
+This compiles `main.ts` → `main.js`, which the browser can run.
+
+**Watch mode** (recommended for development):
+```bash
+npm run watch
+```
+
+This automatically recompiles whenever you save changes to `main.ts`. Leave this running in a terminal while you develop.
+
+**Type checking only** (check for errors without compiling):
+```bash
+npm run type-check
+```
+
+### Development Workflow
+
+1. **Edit `main.ts`** - Make your changes in the TypeScript file
+2. **Build** - Run `npm run build` or use `npm run watch` for auto-rebuild
+3. **Test** - Open `index.html` in your browser to see your changes
+4. **Repeat** - Make changes, build, test, repeat!
+
+### Understanding the TypeScript Files
+
+- **`main.ts`** - Your main source code (edit this file)
+- **`tsconfig.json`** - TypeScript configuration (defines how TypeScript compiles)
+- **`package.json`** - Project metadata and build scripts
+- **`lz-string.d.ts`** - Type definitions for the LZ-String library (tells TypeScript what types this library uses)
+
+### Common TypeScript Concepts You'll See
+
+**Type annotations** (adding types to variables):
+```typescript
+// JavaScript (no types)
+let name = "Coffee";
+
+// TypeScript (with types)
+let name: string = "Coffee";
+let count: number = 5;
+let isReady: boolean = true;
+```
+
+**Interfaces** (defining the shape of objects):
+```typescript
+// Defines what properties a recipe step should have
+interface RecipeStep {
+  duration: number;
+  description: string;
+  water?: string;  // The ? means this property is optional
+}
+```
+
+**Type assertions** (telling TypeScript you know the type):
+```typescript
+// TypeScript doesn't know what getElementById returns
+const input = document.getElementById("water") as HTMLInputElement;
+// The "as HTMLInputElement" tells TypeScript it's an input element
+```
+
+**Union types** (a value can be one of several types):
+```typescript
+// CalculatorField can only be "water", "coffee", or "ratio"
+type CalculatorField = "water" | "coffee" | "ratio";
+```
+
+### Troubleshooting
+
+**"Cannot find module 'typescript'" error**:
+- Run `npm install` to install dependencies
+
+**"main.js is outdated" or changes not showing**:
+- Run `npm run build` to recompile
+- Make sure you're editing `main.ts`, not `main.js` directly
+
+**Type errors when building**:
+- TypeScript found something that might cause a bug
+- Read the error message - it usually tells you exactly what's wrong
+- Common issues:
+  - Using a variable that might be `null` or `undefined`
+  - Passing the wrong type to a function
+  - Missing a required property on an object
+
+**Browser shows old code**:
+- Hard refresh the page (Cmd+Shift+R on Mac, Ctrl+Shift+R on Windows/Linux)
+- Make sure `main.js` was actually updated (check the file timestamp)
+
+### Quick Reference
+
+| Command | What it does |
+|---------|--------------|
+| `npm install` | Install dependencies (do this first) |
+| `npm run build` | Compile TypeScript to JavaScript (one time) |
+| `npm run watch` | Auto-compile on file changes (use while developing) |
+| `npm run type-check` | Check for errors without compiling |
+
+### Tips for JavaScript Developers
+
+- **You can use JavaScript syntax** - All valid JavaScript is valid TypeScript
+- **Types are optional** - TypeScript can infer types automatically in many cases
+- **Start simple** - Add types gradually as you learn
+- **Read the errors** - TypeScript errors usually have helpful messages
+- **Use your IDE** - Most editors (VS Code, WebStorm, etc.) show TypeScript errors as you type
+
 ## Technical Details
 
 ### File Structure
 - `index.html`: Main HTML structure and layout
 - `styles.css`: Complete styling including theme variables, responsive design, and animations
-- `main.js`: All application logic including calculator, timer, URL management, and sharing
+- `main.ts`: TypeScript source file (edit this)
+- `main.js`: Compiled JavaScript file (generated from `main.ts`, runs in browser)
+- `tsconfig.json`: TypeScript compiler configuration
+- `package.json`: Project metadata and npm scripts
+- `lz-string.d.ts`: Type definitions for LZ-String library
 
 ### Dependencies
 - **LZ-String**: Used for URL compression (loaded via CDN)
@@ -138,9 +290,39 @@ The calculator uses a smart tracking system:
 - Visual indicator (green dot) shows which field was calculated vs. manually entered
 
 ## Keyboard Shortcuts
+
+### Basic Navigation
 - **Enter**: Save and close an editable field
 - **Click field**: Edit the field value
 - **Click away (blur)**: Save changes and trigger calculations
+
+### TAB Navigation (Desktop)
+The calculator supports intelligent TAB navigation that moves through fields in a logical order, skipping non-essential buttons:
+
+**Calculator Fields** (in order):
+1. Water (grams)
+2. Coffee (grams)
+3. Ratio (water:coffee)
+
+**Metadata Fields** (in order):
+4. Grind Size (µm)
+5. Water Temperature (°F)
+6. Additional Notes
+
+**Recipe Steps** (for each step, in order):
+7. Water amount (grams)
+8. Step description
+9. Minutes (timer duration)
+10. Seconds (timer duration)
+11. → Moves to next step's water field (if exists)
+
+**Navigation Details**:
+- Press **TAB** to move forward to the next field
+- Press **Shift+TAB** to move backward to the previous field
+- Remove buttons (×) are excluded from tab order - they can only be accessed via mouse/click
+- When TABbing to a field, it automatically enters edit mode (shows the input)
+- TAB navigation works seamlessly across calculator fields, metadata, and recipe steps
+- After the last field in the last recipe step, TAB continues to other focusable elements (buttons, etc.)
 
 ---
 
