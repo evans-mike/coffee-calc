@@ -384,7 +384,7 @@ function startAccumulatedGramsInterval(): void {
       return;
     }
     
-    // PRIMARY CHECK: Check if we've reached the target (or exceeded it)
+    // Check if we've reached the target - PRIMARY CHECK
     if (timerState.accumulatedGrams >= targetAccumulatedGrams) {
       // Step complete, stop this interval
       if (timerState.accumulatedGramsIntervalId !== null) {
@@ -401,7 +401,19 @@ function startAccumulatedGramsInterval(): void {
       return;
     }
     
-    // SAFETY CHECK: Check if we've moved past this step based on current time
+    // Increment accumulated grams FIRST (this should happen every interval tick)
+    timerState.accumulatedGrams++;
+    accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
+    console.log("Accumulated grams incremented:", {
+      currentAccumulated: timerState.accumulatedGrams,
+      target: targetAccumulatedGrams,
+      currentTime: timerState.currentTime,
+      elapsedInStep: timerState.currentTime - stepStartTime,
+      stepDuration
+    });
+    
+    // SAFETY CHECK: After incrementing, check if we've moved past this step
+    // This only stops if we've definitely moved to the next step
     const elapsedInStep = timerState.currentTime - stepStartTime;
     if (elapsedInStep >= stepDuration) {
       // We've moved past this step, stop and start next
@@ -409,9 +421,11 @@ function startAccumulatedGramsInterval(): void {
         clearInterval(timerState.accumulatedGramsIntervalId);
         timerState.accumulatedGramsIntervalId = null;
       }
-      // Set to target (step is complete)
-      timerState.accumulatedGrams = targetAccumulatedGrams;
-      accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
+      // Cap at target (step is complete)
+      if (timerState.accumulatedGrams < targetAccumulatedGrams) {
+        timerState.accumulatedGrams = targetAccumulatedGrams;
+        accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
+      }
       // Start interval for next step if timer is still running
       if (timerState.isRunning) {
         startAccumulatedGramsInterval();
@@ -419,17 +433,7 @@ function startAccumulatedGramsInterval(): void {
       return;
     }
     
-    // Still in step and haven't reached target, increment
-    timerState.accumulatedGrams++;
-    accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
-    console.log("Accumulated grams incremented:", {
-      currentAccumulated: timerState.accumulatedGrams,
-      target: targetAccumulatedGrams,
-      currentTime: timerState.currentTime,
-      elapsedInStep,
-      stepStartTime,
-      stepDuration
-    });
+    // Continue incrementing on next interval tick
   }, incrementInterval);
 }
 
@@ -580,11 +584,14 @@ function startTimer(): void {
     timerState.intervalId = null;
   }
   
+  // Set timer as running FIRST so that startAccumulatedGramsInterval() doesn't return early
+  timerState.isRunning = true;
+  
   // Initialize accumulated grams from completed steps
   timerState.accumulatedGrams = calculateAccumulatedGramsFromCompletedSteps(timerState.currentTime);
   accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
   
-  // Start the accumulated grams interval
+  // Start the accumulated grams interval (now that isRunning is true)
   startAccumulatedGramsInterval();
   
   // Timer starts from currentTime and counts up
@@ -637,7 +644,7 @@ function startTimer(): void {
       startAccumulatedGramsInterval();
     }
   }, 1000);
-  timerState.isRunning = true;
+  // timerState.isRunning is already set to true at the start of this function
   playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-pause"></i>';
 }
 
