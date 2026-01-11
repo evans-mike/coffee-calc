@@ -2,7 +2,7 @@
 type CalculatorField = "water" | "coffee" | "ratio";
 
 interface RecipeStep {
-  timestamp: number; // Total seconds from start (e.g., 0, 30, 45, 65, 90, 120)
+  duration: number; // Duration of this step in seconds (e.g., 30, 25, 20, 15)
   description: string;
   water?: string;
 }
@@ -10,8 +10,8 @@ interface RecipeStep {
 interface StepInitialValues {
   water: string;
   description: string;
-  timestampMinutes: string;
-  timestampSeconds: string;
+  durationMinutes: string;
+  durationSeconds: string;
 }
 
 interface RecipeData {
@@ -46,7 +46,7 @@ const timerState: TimerState = {
   isRunning: false,
   currentTime: 0, // Elapsed time in seconds (counts up from 0:00)
   currentStep: 0,
-  steps: [], // Will contain {timestamp: number, description: string, water?: string}
+  steps: [], // Will contain {duration: number, description: string, water?: string}
   intervalId: null,
   accumulatedGramsIntervalId: null,
   accumulatedGrams: 0, // Accumulated grams (integer only)
@@ -231,12 +231,11 @@ function formatTime(seconds: number): string {
     .padStart(2, "0")}`;
 }
 
-// Calculate total recipe time (max timestamp)
-// Get last step's timestamp (total time)
+// Calculate total recipe time (sum of all durations)
 function calculateTotalTime(): number {
   if (timerState.steps.length === 0) return 0;
-  // Steps are sorted by timestamp, so last step is the one with max timestamp
-  return Math.max(...timerState.steps.map(step => step.timestamp));
+  // Total time is the sum of all step durations
+  return timerState.steps.reduce((sum, step) => sum + step.duration, 0);
 }
 
 // Start/update the accumulated grams interval based on current step
@@ -259,66 +258,57 @@ function startAccumulatedGramsInterval(): void {
   
   let currentStepIndex = -1;
   
-  // Timestamps represent when steps END
-  // Step 1 starts at 0:00, ends at timestamp[0]
-  // Step 2 starts at timestamp[0], ends at timestamp[1]
+  // Durations represent how long each step lasts
+  // Step 1: 0 to duration[0]
+  // Step 2: duration[0] to duration[0] + duration[1]
+  // Step 3: duration[0] + duration[1] to duration[0] + duration[1] + duration[2]
   // etc.
   
-  // Find which step we're currently in
-  if (timerState.currentTime < timerState.steps[0].timestamp) {
-    // Before first step ends - we're in step 1
-    currentStepIndex = 0;
-  } else {
-    // Find which step's end time we've passed but haven't reached the next
-    for (let i = 0; i < timerState.steps.length; i++) {
-      const stepEndTime = timerState.steps[i].timestamp;
-      const nextStep = timerState.steps[i + 1];
-      
-      if (timerState.currentTime >= stepEndTime) {
-        // We've passed this step's end time
-        if (nextStep && timerState.currentTime < nextStep.timestamp) {
-          // We're in the next step
-          currentStepIndex = i + 1;
-          break;
-        } else if (!nextStep) {
-          // This is the last step and we've passed its end time
-          // We're past all steps
-          currentStepIndex = -1;
-          break;
-        }
-      }
-    }
+  // Calculate cumulative durations to find which step we're in
+  let cumulativeTime = 0;
+  for (let i = 0; i < timerState.steps.length; i++) {
+    const stepDuration = timerState.steps[i].duration;
+    cumulativeTime += stepDuration;
     
-    // If we haven't found a step yet but we're before the first step's end time
-    if (currentStepIndex === -1 && timerState.currentTime >= 0 && timerState.currentTime < timerState.steps[0].timestamp) {
-      currentStepIndex = 0;
+    if (timerState.currentTime < cumulativeTime) {
+      // We're in this step
+      currentStepIndex = i;
+      break;
     }
   }
   
-  // If we haven't reached the first step yet, or past all steps, stop incrementing
+  // If we've passed all steps, don't start interval
   if (currentStepIndex === -1 || currentStepIndex >= timerState.steps.length) {
     return;
   }
   
   const currentStep = timerState.steps[currentStepIndex];
+  
+  // Calculate step start time (sum of previous steps' durations)
+  let stepStartTime = 0;
+  for (let i = 0; i < currentStepIndex; i++) {
+    stepStartTime += timerState.steps[i].duration;
+  }
+  
+  // Step duration is the current step's duration
+  const stepDuration = currentStep.duration;
+  const stepEndTime = stepStartTime + stepDuration;
+  
+  // Previous step for water calculation
   const previousStep = currentStepIndex > 0 ? timerState.steps[currentStepIndex - 1] : null;
   
-  // Calculate step start and end times
-  // Step 1 starts at 0:00, ends at timestamp[0]
-  // Step 2 starts at timestamp[0], ends at timestamp[1]
-  const stepStartTime = previousStep ? previousStep.timestamp : 0;
-  const stepEndTime = currentStep.timestamp;
-  const stepDuration = stepEndTime - stepStartTime;
+  // Get step water amounts (water per step, not cumulative)
+  const currentStepWater = currentStep.water ? parseInt(currentStep.water, 10) : 0;
+
+  // Calculate accumulated grams from previous completed steps (sum of previous steps' water)
+  let accumulatedFromPreviousSteps = 0;
+  for (let i = 0; i < currentStepIndex; i++) {
+    const stepWater = timerState.steps[i].water ? parseInt(timerState.steps[i].water as string, 10) : 0;
+    accumulatedFromPreviousSteps += stepWater;
+  }
   
-  // Get step water amounts (cumulative totals)
-  const currentStepWaterTotal = currentStep.water ? parseInt(currentStep.water, 10) : 0;
-  const previousStepWaterTotal = previousStep && previousStep.water ? parseInt(previousStep.water, 10) : 0;
-  
-  // Calculate incremental water for this step (difference from previous step)
-  const stepWaterIncrement = currentStepWaterTotal - previousStepWaterTotal;
-  
-  // Calculate accumulated grams from previous completed steps (use previous step's total)
-  const accumulatedFromPreviousSteps = previousStepWaterTotal;
+  // Water increment for this step (just the current step's water)
+  const stepWaterIncrement = currentStepWater;
   
   // If we're at the start of this step, set accumulated grams to previous steps' total
   // If we're in the middle of the step, calculate what we should have accumulated so far
@@ -330,15 +320,15 @@ function startAccumulatedGramsInterval(): void {
     const elapsedInStep = timerState.currentTime - stepStartTime;
     if (stepDuration > 0) {
       const proportion = Math.min(Math.max(elapsedInStep / stepDuration, 0), 1);
-      const currentStepGrams = Math.floor(proportion * stepWaterIncrement); // Integer grams from current step increment
+      const currentStepGrams = Math.floor(proportion * stepWaterIncrement); // Integer grams from current step
       timerState.accumulatedGrams = accumulatedFromPreviousSteps + currentStepGrams;
     } else {
       // Step has zero duration, add full increment
       timerState.accumulatedGrams = accumulatedFromPreviousSteps + stepWaterIncrement;
     }
   } else if (timerState.currentTime >= stepEndTime) {
-    // Step is complete, use the step's total water amount
-    timerState.accumulatedGrams = currentStepWaterTotal;
+    // Step is complete, add full water from this step
+    timerState.accumulatedGrams = accumulatedFromPreviousSteps + currentStepWater;
   }
   accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
   
@@ -354,8 +344,8 @@ function startAccumulatedGramsInterval(): void {
   // interval = 1g / rate * 1000ms = 1000ms / rate
   const incrementInterval = 1000 / gramsPerSecond; // milliseconds
   
-  // Calculate target accumulated grams for this step (previous total + increment = current step's total)
-  const targetAccumulatedGrams = currentStepWaterTotal;
+  // Calculate target accumulated grams for this step (previous total + current step's water)
+  const targetAccumulatedGrams = accumulatedFromPreviousSteps + currentStepWater;
   
   console.log("Starting accumulated grams interval:", {
     currentStepIndex,
@@ -363,8 +353,7 @@ function startAccumulatedGramsInterval(): void {
     stepEndTime,
     stepDuration,
     stepWaterIncrement,
-    currentStepWaterTotal,
-    previousStepWaterTotal,
+    currentStepWater,
     accumulatedFromPreviousSteps,
     currentAccumulated: timerState.accumulatedGrams,
     targetAccumulatedGrams,
@@ -446,92 +435,85 @@ function calculateAccumulatedGramsFromCompletedSteps(currentTime: number): numbe
   // If we're before the first step starts (0:00), return 0
   if (currentTime < 0) return 0;
   
-  // Find the last step whose end time we've passed
-  let lastCompletedStepIndex = -1;
+  // Find which step we're currently in based on cumulative durations
+  let cumulativeTime = 0;
+  let currentStepIndex = -1;
+  
   for (let i = 0; i < timerState.steps.length; i++) {
-    const stepEndTime = timerState.steps[i].timestamp;
-    if (currentTime >= stepEndTime) {
-      lastCompletedStepIndex = i;
-    } else {
+    const stepStartTime = cumulativeTime;
+    cumulativeTime += timerState.steps[i].duration;
+    const stepEndTime = cumulativeTime;
+    
+    if (currentTime >= stepStartTime && currentTime < stepEndTime) {
+      // We're in this step
+      currentStepIndex = i;
+      const step = timerState.steps[i];
+      const stepWater = step.water ? parseInt(step.water as string, 10) : 0;
+      const stepDuration = step.duration;
+      const elapsedInStep = currentTime - stepStartTime;
+      
+      if (stepDuration > 0) {
+        const proportion = Math.min(Math.max(elapsedInStep / stepDuration, 0), 1);
+        // Calculate accumulated grams from previous steps
+        let accumulatedFromPrevious = 0;
+        for (let j = 0; j < i; j++) {
+          const prevStepWater = timerState.steps[j].water ? parseInt(timerState.steps[j].water as string, 10) : 0;
+          accumulatedFromPrevious += prevStepWater;
+        }
+        // Add proportional amount from current step
+        return accumulatedFromPrevious + Math.floor(proportion * stepWater);
+      }
       break;
     }
   }
   
-  // If we haven't completed any step, check if we're in the first step
-  if (lastCompletedStepIndex === -1) {
-    // We're in step 1 (before first step's end time)
-    // Calculate proportional amount for step 1
-    const step1 = timerState.steps[0];
-    const step1StartTime = 0;
-    const step1EndTime = step1.timestamp;
-    const step1Duration = step1EndTime - step1StartTime;
-    
-    if (currentTime >= step1StartTime && currentTime < step1EndTime && step1Duration > 0) {
-      // In step 1, calculate proportional
-      const step1WaterTotal = step1.water ? parseInt(step1.water, 10) : 0;
-      const elapsedInStep = currentTime - step1StartTime;
-      const proportion = Math.min(Math.max(elapsedInStep / step1Duration, 0), 1);
-      return Math.floor(proportion * step1WaterTotal);
+  // If we're past all steps, return total water from all steps
+  if (currentTime >= cumulativeTime) {
+    let totalWater = 0;
+    for (const step of timerState.steps) {
+      const stepWater = step.water ? parseInt(step.water as string, 10) : 0;
+      totalWater += stepWater;
     }
-    return 0;
+    return totalWater;
   }
   
-  // We've completed at least one step
-  const lastCompletedStep = timerState.steps[lastCompletedStepIndex];
-  const lastCompletedWaterTotal = lastCompletedStep.water ? parseInt(lastCompletedStep.water, 10) : 0;
-  
-  // Check if we're in the next step (partially complete)
-  if (lastCompletedStepIndex < timerState.steps.length - 1) {
-    const nextStep = timerState.steps[lastCompletedStepIndex + 1];
-    const nextStepStartTime = lastCompletedStep.timestamp;
-    const nextStepEndTime = nextStep.timestamp;
-    
-    if (currentTime > nextStepStartTime && currentTime < nextStepEndTime) {
-      // We're in the next step, calculate proportional amount
-      const nextStepWaterTotal = nextStep.water ? parseInt(nextStep.water, 10) : 0;
-      const nextStepWaterIncrement = nextStepWaterTotal - lastCompletedWaterTotal;
-      const nextStepDuration = nextStepEndTime - nextStepStartTime;
-      const elapsedInNextStep = currentTime - nextStepStartTime;
-      
-      if (nextStepDuration > 0) {
-        const proportion = Math.min(Math.max(elapsedInNextStep / nextStepDuration, 0), 1);
-        const nextStepGrams = Math.floor(proportion * nextStepWaterIncrement);
-        return lastCompletedWaterTotal + nextStepGrams;
-      }
-    }
+  return 0;
+}
+
+// Helper function to calculate cumulative time up to (but not including) a step index
+function getCumulativeTimeUpToStep(stepIndex: number): number {
+  let cumulativeTime = 0;
+  for (let i = 0; i < stepIndex; i++) {
+    cumulativeTime += timerState.steps[i].duration;
   }
-  
-  // We're past all steps or exactly at a step's end time - return that step's total
-  return lastCompletedWaterTotal;
+  return cumulativeTime;
 }
 
 // Update timer stats displays
 function updateTimerStats(): void {
-  // Get last step's timestamp (total time) and grams (total grams)
+  // Calculate total time (sum of all durations) and total grams (sum of all water)
   if (timerState.steps.length === 0) {
     totalTimeDisplay.textContent = "Total: 00:00";
     totalGramsDisplay.textContent = "Total: 0g";
   } else {
-    // Steps are sorted by timestamp, so find the step with the max timestamp
-    // (which should be the last step, but we'll find max to be safe)
-    const lastStep = timerState.steps.reduce((prev, current) => 
-      (current.timestamp > prev.timestamp) ? current : prev
-    );
-    const totalTime = lastStep.timestamp;
+    // Total time is sum of all step durations
+    const totalTime = timerState.steps.reduce((sum, step) => sum + step.duration, 0);
     const formattedTime = formatTime(totalTime);
     totalTimeDisplay.textContent = `Total: ${formattedTime}`;
     
-    // Get last step's water amount (total grams)
-    // Water is stored as string, parse it to number
-    const totalGrams = lastStep.water ? parseInt(lastStep.water, 10) : 0;
+    // Total grams is sum of all step water amounts
+    const totalGrams = timerState.steps.reduce((sum, step) => {
+      const stepWater = step.water ? parseInt(step.water, 10) : 0;
+      return sum + stepWater;
+    }, 0);
     totalGramsDisplay.textContent = `Total: ${totalGrams}g`;
     
     // Debug: Log for single step verification
     if (timerState.steps.length === 1) {
       console.log("Single step recipe:", {
-        timestamp: lastStep.timestamp,
+        duration: timerState.steps[0].duration,
         formattedTime,
-        water: lastStep.water,
+        water: timerState.steps[0].water,
         totalGrams,
         currentAccumulated: timerState.accumulatedGrams
       });
@@ -568,7 +550,8 @@ function updateStepIndicator(): void {
   }
   
   if (stepDetails && currentStep && currentStep.water) {
-    stepDetails.textContent = `Step ${timerState.currentStep + 1} - Add ${currentStep.water}g of water to ${currentStep.description} at ${formatTime(currentStep.timestamp)}`;
+    const stepStartTime = getCumulativeTimeUpToStep(timerState.currentStep);
+    stepDetails.textContent = `Step ${timerState.currentStep + 1} - Add ${currentStep.water}g of water to ${currentStep.description} at ${formatTime(stepStartTime)}`;
   }
   
   // Update timer stats
@@ -596,11 +579,9 @@ function startTimer(): void {
   
   // Timer starts from currentTime and counts up
   timerState.intervalId = setInterval(() => {
-    // Get total time (last step's timestamp)
+    // Get total time (sum of all durations)
     const totalTime = timerState.steps.length > 0 
-      ? timerState.steps.reduce((prev, current) => 
-          (current.timestamp > prev.timestamp) ? current : prev
-        ).timestamp
+      ? timerState.steps.reduce((sum, step) => sum + step.duration, 0)
       : 0;
     
     // Check if we've reached or exceeded the total time
@@ -618,12 +599,13 @@ function startTimer(): void {
       timerState.currentTime = totalTime; // Set to exact total time
       currentTimerDisplay.textContent = formatTime(totalTime);
       playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
-      // Update accumulated grams to final total
+      // Update accumulated grams to final total (sum of all step water amounts)
       if (timerState.steps.length > 0) {
-        const lastStep = timerState.steps.reduce((prev, current) => 
-          (current.timestamp > prev.timestamp) ? current : prev
-        );
-        timerState.accumulatedGrams = lastStep.water ? parseInt(lastStep.water, 10) : 0;
+        const totalGrams = timerState.steps.reduce((sum, step) => {
+          const stepWater = step.water ? parseInt(step.water as string, 10) : 0;
+          return sum + stepWater;
+        }, 0);
+        timerState.accumulatedGrams = totalGrams;
         accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
       }
       updateCurrentStepFromTime();
@@ -703,14 +685,16 @@ function previousStep(): void {
     timerState.currentStep--;
     const step = timerState.steps[timerState.currentStep];
     if (step) {
-      timerState.currentTime = step.timestamp;
+      // Set current time to the start of this step (cumulative time up to this step)
+      timerState.currentTime = getCumulativeTimeUpToStep(timerState.currentStep);
       currentTimerDisplay.textContent = formatTime(timerState.currentTime);
       // Update accumulated grams from completed steps
       timerState.accumulatedGrams = calculateAccumulatedGramsFromCompletedSteps(timerState.currentTime);
       accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
       console.log("Moved to previous step:", {
         currentStep: timerState.currentStep,
-        timestamp: step.timestamp,
+        startTime: timerState.currentTime,
+        duration: step.duration,
         description: step.description,
       });
       updateStepIndicator();
@@ -749,14 +733,16 @@ function nextStep(): void {
     timerState.currentStep++;
     const step = timerState.steps[timerState.currentStep];
     if (step) {
-      timerState.currentTime = step.timestamp;
+      // Set current time to the start of this step (cumulative time up to this step)
+      timerState.currentTime = getCumulativeTimeUpToStep(timerState.currentStep);
       currentTimerDisplay.textContent = formatTime(timerState.currentTime);
       // Update accumulated grams from completed steps
       timerState.accumulatedGrams = calculateAccumulatedGramsFromCompletedSteps(timerState.currentTime);
       accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
       console.log("Moved to next step:", {
         currentStep: timerState.currentStep,
-        timestamp: step.timestamp,
+        startTime: timerState.currentTime,
+        duration: step.duration,
         description: step.description,
       });
       updateStepIndicator();
@@ -818,11 +804,11 @@ function resetTimerOnStepEdit(): void {
   updateStepButtons();
 }
 
-function parseStepTimestamp(minutesInput: HTMLInputElement, secondsInput: HTMLInputElement): number {
+function parseStepDuration(minutesInput: HTMLInputElement, secondsInput: HTMLInputElement): number {
   const minutes = parseInt(minutesInput.value || "0", 10);
   const seconds = parseInt(secondsInput.value || "0", 10);
   const totalSeconds = minutes * 60 + seconds;
-  console.log("Parsed step timestamp:", { minutes, seconds, totalSeconds });
+  console.log("Parsed step duration:", { minutes, seconds, totalSeconds });
   return totalSeconds;
 }
 
@@ -834,17 +820,17 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
   const stepElement = document.createElement("div");
   stepElement.className = "recipe-step";
 
-  // Time container (timestamp picker) - NEW ORDER: First
+  // Time container (duration picker) - NEW ORDER: First
   const timeContainer = document.createElement("div");
   timeContainer.className = "time-container";
 
-  // Minutes input for timestamp
+  // Minutes input for duration
   const minutesSpan = document.createElement("span");
-  minutesSpan.className = "editable timestamp-minutes";
+  minutesSpan.className = "editable duration-minutes";
   minutesSpan.setAttribute("data-placeholder", "0");
   const minutesInput = document.createElement("input");
   minutesInput.type = "number";
-  minutesInput.className = "time-input timestamp-minutes";
+  minutesInput.className = "time-input duration-minutes";
   minutesInput.min = "0";
   minutesInput.max = "59";
   minutesInput.step = "1";
@@ -853,11 +839,11 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
   minutesInput.placeholder = "0";
   minutesInput.style.display = "none";
   if (initialValues) {
-    minutesInput.value = initialValues.timestampMinutes;
-    const mins = parseInt(initialValues.timestampMinutes || "0", 10);
-    const secs = parseInt(initialValues.timestampSeconds || "0", 10);
+    minutesInput.value = initialValues.durationMinutes;
+    const mins = parseInt(initialValues.durationMinutes || "0", 10);
+    const secs = parseInt(initialValues.durationSeconds || "0", 10);
     const isEmpty = mins === 0 && secs === 0;
-    const displayValue = initialValues.timestampMinutes.padStart(2, "0");
+    const displayValue = initialValues.durationMinutes.padStart(2, "0");
     minutesSpan.innerHTML = isEmpty ? '<i class="fa-regular fa-pen-to-square"></i> ' + displayValue : displayValue;
   } else {
     minutesSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> 00';
@@ -868,13 +854,13 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
   timeSeparator.textContent = ":";
   timeSeparator.className = "time-separator";
 
-  // Seconds input for timestamp
+  // Seconds input for duration
   const secondsSpan = document.createElement("span");
-  secondsSpan.className = "editable timestamp-seconds";
+  secondsSpan.className = "editable duration-seconds";
   secondsSpan.setAttribute("data-placeholder", "0");
   const secondsInput = document.createElement("input");
   secondsInput.type = "number";
-  secondsInput.className = "time-input timestamp-seconds";
+  secondsInput.className = "time-input duration-seconds";
   secondsInput.min = "0";
   secondsInput.max = "59";
   secondsInput.step = "1";
@@ -883,15 +869,15 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
   secondsInput.placeholder = "0";
   secondsInput.style.display = "none";
   if (initialValues) {
-    secondsInput.value = initialValues.timestampSeconds;
-    const displayValue = initialValues.timestampSeconds.padStart(2, "0");
+    secondsInput.value = initialValues.durationSeconds;
+    const displayValue = initialValues.durationSeconds.padStart(2, "0");
     secondsSpan.innerHTML = displayValue;
   } else {
     secondsSpan.innerHTML = "00";
   }
 
-  // Update timestamp display helper - only show icon if empty (0:00)
-  const updateTimestampDisplay = (): void => {
+  // Update duration display helper - only show icon if empty (0:00)
+  const updateDurationDisplay = (): void => {
     const mins = minutesInput.value || "0";
     const secs = secondsInput.value || "0";
     const totalSeconds = parseInt(mins, 10) * 60 + parseInt(secs, 10);
@@ -905,7 +891,7 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
     secondsSpan.innerHTML = secs.padStart(2, "0");
   };
   
-  // Add click listeners for timestamp spans to make them editable
+  // Add click listeners for duration spans to make them editable
   minutesSpan.addEventListener("click", () => {
     minutesSpan.style.display = "none";
     minutesInput.style.display = "inline";
@@ -972,65 +958,55 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
     waterSpan.innerHTML = formatWaterDisplay("");
   }
 
-  // Add timestamp change listeners
+  // Add duration change listeners
   const updateTimerState = (): void => {
-    const timestamp = parseStepTimestamp(minutesInput, secondsInput);
+    const duration = parseStepDuration(minutesInput, secondsInput);
     
-    // Find the step by matching description and water (more reliable than index)
-    const stepDesc = descriptionInput.value;
-    const stepWater = stepWaterInput.value || undefined;
-    const stepToUpdate = timerState.steps.find(step => 
-      step.description === stepDesc && step.water === stepWater
-    );
+    // Find the step by its index in the DOM (steps are in order)
+    const stepIndex = Array.from(stepsContainer.children).indexOf(stepElement);
     
-    if (stepToUpdate) {
-      // Check if this is the current step before updating
-      const wasCurrentStepIndex = timerState.steps.indexOf(stepToUpdate);
-      const wasCurrentStep = wasCurrentStepIndex === timerState.currentStep;
+    if (stepIndex >= 0 && stepIndex < timerState.steps.length) {
+      const stepToUpdate = timerState.steps[stepIndex];
       
-      // Update the timestamp (no validation/clamping)
-      stepToUpdate.timestamp = timestamp;
-      
-      // Sort steps by timestamp to maintain order
-      timerState.steps.sort((a, b) => a.timestamp - b.timestamp);
-      // Re-render steps in sorted order
-      reorderStepsInDOM();
+      // Update the duration (no validation/clamping)
+      stepToUpdate.duration = duration;
       
       // Reset timer to beginning when recipe steps are edited
       resetTimerOnStepEdit();
       
-      console.log("Updated step timestamp:", { wasCurrentStepIndex, newStepIndex: timerState.steps.indexOf(stepToUpdate), timestamp, wasCurrentStep });
+      console.log("Updated step duration:", { stepIndex, duration });
     }
-    updateTimestampDisplay();
-    // Always update URL after timestamp edit (even if step not found, the display changed)
+    updateDurationDisplay();
+    // Always update URL after duration edit (even if step not found, the display changed)
     updateUrlInBrowser();
   };
 
   minutesInput.addEventListener("blur", () => {
     updateTimerState();
-    updateTimestampDisplay();
+    updateDurationDisplay();
     minutesInput.style.display = "none";
     minutesSpan.style.display = "inline";
   });
   minutesInput.addEventListener("change", () => {
     updateTimerState();
-    updateTimestampDisplay();
+    updateDurationDisplay();
   });
   secondsInput.addEventListener("blur", () => {
     updateTimerState();
-    updateTimestampDisplay();
+    updateDurationDisplay();
     secondsInput.style.display = "none";
     secondsSpan.style.display = "inline";
   });
   secondsInput.addEventListener("change", () => {
     updateTimerState();
-    updateTimestampDisplay();
+    updateDurationDisplay();
   });
 
   descriptionInput.addEventListener("blur", () => {
-    // Find the step in timerState.steps by matching timestamp
-    const timestamp = parseStepTimestamp(minutesInput, secondsInput);
-    const stepInState = timerState.steps.find(step => step.timestamp === timestamp);
+    // Find the step in timerState.steps by matching description and water
+    const stepDesc = descriptionInput.value;
+    const stepWater = stepWaterInput.value || undefined;
+    const stepInState = timerState.steps.find(step => step.description === stepDesc && step.water === stepWater);
     if (stepInState) {
       stepInState.description = descriptionInput.value;
       
@@ -1044,9 +1020,10 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
   });
 
   descriptionInput.addEventListener("change", () => {
-    // Find the step in timerState.steps by matching timestamp
-    const timestamp = parseStepTimestamp(minutesInput, secondsInput);
-    const stepInState = timerState.steps.find(step => step.timestamp === timestamp);
+    // Find the step in timerState.steps by matching description and water
+    const stepDesc = descriptionInput.value;
+    const stepWater = stepWaterInput.value || undefined;
+    const stepInState = timerState.steps.find(step => step.description === stepDesc && step.water === stepWater);
     if (stepInState) {
       stepInState.description = descriptionInput.value;
       
@@ -1065,9 +1042,10 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
   });
 
   stepWaterInput.addEventListener("blur", () => {
-    // Find the step in timerState.steps by matching timestamp
-    const timestamp = parseStepTimestamp(minutesInput, secondsInput);
-    const stepInState = timerState.steps.find(step => step.timestamp === timestamp);
+    // Find the step in timerState.steps by matching description and water
+    const stepDesc = descriptionInput.value;
+    const stepWater = stepWaterInput.value || undefined;
+    const stepInState = timerState.steps.find(step => step.description === stepDesc && step.water === stepWater);
     if (stepInState) {
       stepInState.water = stepWaterInput.value || undefined;
       
@@ -1081,9 +1059,10 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
   });
 
   stepWaterInput.addEventListener("change", () => {
-    // Find the step in timerState.steps by matching timestamp
-    const timestamp = parseStepTimestamp(minutesInput, secondsInput);
-    const stepInState = timerState.steps.find(step => step.timestamp === timestamp);
+    // Find the step in timerState.steps by matching description and water
+    const stepDesc = descriptionInput.value;
+    const stepWater = stepWaterInput.value || undefined;
+    const stepInState = timerState.steps.find(step => step.description === stepDesc && step.water === stepWater);
     if (stepInState) {
       stepInState.water = stepWaterInput.value || undefined;
       
@@ -1120,7 +1099,7 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
           // Last input in step - check for next step
           const nextStep = stepElement.nextElementSibling;
           if (nextStep) {
-            const nextStepTime = nextStep.querySelector('.timestamp-minutes') as HTMLInputElement;
+            const nextStepTime = nextStep.querySelector('.duration-minutes') as HTMLInputElement;
             if (nextStepTime) {
               event.preventDefault();
               const nextStepTimeSpan = nextStepTime.previousElementSibling as HTMLElement;
@@ -1176,18 +1155,15 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
 
   stepsContainer.appendChild(stepElement);
 
-  // Add to timer state first (with current timestamp, even if 0:00)
-  const initialTimestamp = parseStepTimestamp(minutesInput, secondsInput);
+  // Add to timer state (with current duration)
+  const initialDuration = parseStepDuration(minutesInput, secondsInput);
   const description = descriptionInput.value || `Step ${timerState.steps.length + 1}`;
   const water = stepWaterInput.value || undefined;
-  timerState.steps.push({ timestamp: initialTimestamp, description, water });
+  timerState.steps.push({ duration: initialDuration, description, water });
   
-  // Sort steps by timestamp
-  timerState.steps.sort((a, b) => a.timestamp - b.timestamp);
+  // Steps are now in order (no sorting needed)
   
-  // Timestamp is already set from input values (no validation/rules applied)
-  
-  reorderStepsInDOM();
+  // Duration is already set from input values (no validation/rules applied)
 
   // Initialize timer state for first step
   if (timerState.steps.length === 1) {
@@ -1218,40 +1194,15 @@ function addRecipeStep(initialValues: StepInitialValues | null = null): void {
   setupStepTabNavigation(descriptionInput, stepWaterInput);
   setupStepTabNavigation(stepWaterInput, null);
   
-  updateTimestampDisplay();
+  updateDurationDisplay();
   updateUrlInBrowser();
 }
 
-// Helper function to reorder steps in DOM based on timestamp order
+// Steps are now in order (no reordering needed)
+// This function is no longer needed but kept for compatibility
 function reorderStepsInDOM(): void {
-  const stepsContainer = document.getElementById("recipe-steps");
-  if (!stepsContainer) return;
-  
-  // Get all step elements and extract their timestamps
-  const stepElements = Array.from(stepsContainer.children);
-  
-  // Create array with step elements and their timestamps
-  const stepData = stepElements.map(step => {
-    const minutesInput = step.querySelector(".timestamp-minutes") as HTMLInputElement;
-    const secondsInput = step.querySelector(".timestamp-seconds") as HTMLInputElement;
-    const minutes = parseInt(minutesInput?.value || "0", 10);
-    const seconds = parseInt(secondsInput?.value || "0", 10);
-    const timestamp = minutes * 60 + seconds;
-    return { element: step, timestamp };
-  });
-  
-  // Sort by timestamp
-  stepData.sort((a, b) => a.timestamp - b.timestamp);
-  
-  // Remove all elements first (preserves event listeners)
-  stepElements.forEach(element => {
-    stepsContainer.removeChild(element);
-  });
-  
-  // Re-append in sorted order (event listeners are preserved)
-  stepData.forEach(({ element }) => {
-    stepsContainer.appendChild(element);
-  });
+  // Steps are maintained in order, no sorting/reordering needed
+  return;
 }
 
 // Helper function to find and update current step based on elapsed time
@@ -1261,39 +1212,29 @@ function updateCurrentStepFromTime(): void {
     return;
   }
   
-  // Timestamps represent when steps END
-  // Step 1 starts at 0:00, ends at timestamp[0]
-  // Step 2 starts at timestamp[0], ends at timestamp[1]
+  // Durations represent how long each step lasts
+  // Step 1: 0 to duration[0]
+  // Step 2: duration[0] to duration[0] + duration[1]
+  // Step 3: duration[0] + duration[1] to duration[0] + duration[1] + duration[2]
   // etc.
   
   let newStepIndex = 0;
+  let cumulativeTime = 0;
   
-  // If we're before the first step ends, we're in step 1
-  if (timerState.currentTime < timerState.steps[0].timestamp) {
-    newStepIndex = 0;
-  } else {
-    // Find the last step whose end time we've passed, but we're still in that step or before the next
-    for (let i = 0; i < timerState.steps.length; i++) {
-      const stepEndTime = timerState.steps[i].timestamp;
-      const nextStep = timerState.steps[i + 1];
-      
-      if (timerState.currentTime >= stepEndTime) {
-        if (nextStep && timerState.currentTime < nextStep.timestamp) {
-          // We've passed this step but we're in the next step
-          newStepIndex = i + 1;
-        } else if (!nextStep) {
-          // This is the last step and we've passed it
-          newStepIndex = i;
-        }
-      } else {
-        // We haven't reached this step's end time, so we're in the previous step
-        if (i > 0) {
-          newStepIndex = i - 1;
-        } else {
-          newStepIndex = 0;
-        }
-        break;
-      }
+  // Find which step we're currently in based on cumulative durations
+  for (let i = 0; i < timerState.steps.length; i++) {
+    const stepStartTime = cumulativeTime;
+    cumulativeTime += timerState.steps[i].duration;
+    const stepEndTime = cumulativeTime;
+    
+    if (timerState.currentTime >= stepStartTime && timerState.currentTime < stepEndTime) {
+      // We're in this step
+      newStepIndex = i;
+      break;
+    } else if (timerState.currentTime >= stepEndTime && i === timerState.steps.length - 1) {
+      // We're past the last step
+      newStepIndex = i;
+      break;
     }
   }
   
@@ -1308,8 +1249,8 @@ function attachEditableListeners(stepElement: Element): void {
   const isRecipeStep = stepElement.classList.contains("recipe-step");
 
   editableSpans.forEach((span) => {
-    // Skip timestamp fields, description, and water fields in recipe steps - they are handled separately in addRecipeStep
-    if (span.classList.contains("timestamp-minutes") || span.classList.contains("timestamp-seconds")) {
+    // Skip duration fields, description, and water fields in recipe steps - they are handled separately in addRecipeStep
+    if (span.classList.contains("duration-minutes") || span.classList.contains("duration-seconds")) {
       return;
     }
     
@@ -1411,8 +1352,8 @@ function buildUrlWithValues(): string {
       (step) => ({
         water: (step.querySelector('input[type="number"]:not(.time-input)') as HTMLInputElement)?.value || "",
         description: (step.querySelector('input[type="text"]') as HTMLInputElement)?.value || "",
-        timestampMinutes: (step.querySelector(".timestamp-minutes") as HTMLInputElement)?.value || "0",
-        timestampSeconds: (step.querySelector(".timestamp-seconds") as HTMLInputElement)?.value || "0",
+        durationMinutes: (step.querySelector(".duration-minutes") as HTMLInputElement)?.value || "0",
+        durationSeconds: (step.querySelector(".duration-seconds") as HTMLInputElement)?.value || "0",
       })
     ),
   };
@@ -1465,8 +1406,8 @@ function generateRecipeMarkdown(): string {
   steps.forEach((step, index) => {
     const water = (step.querySelector('input[type="number"]:not(.time-input)') as HTMLInputElement)?.value || "";
     const description = (step.querySelector('input[type="text"]') as HTMLInputElement)?.value || "";
-    const minutes = (step.querySelector(".timestamp-minutes") as HTMLInputElement)?.value || "0";
-    const seconds = (step.querySelector(".timestamp-seconds") as HTMLInputElement)?.value || "0";
+    const minutes = (step.querySelector(".duration-minutes") as HTMLInputElement)?.value || "0";
+    const seconds = (step.querySelector(".duration-seconds") as HTMLInputElement)?.value || "0";
 
     markdown += `${minutes}:${seconds.padStart(2, "0")} - ${description}${water ? ` - ${water}g` : ""}\n`;
   });
