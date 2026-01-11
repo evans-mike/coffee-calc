@@ -169,8 +169,8 @@ textarea:focus {
 /* Recipe Step Layout */
 .recipe-step {
   display: grid;
-  grid-template-columns: auto 1fr auto auto auto;
-  /* grid-template-rows: auto auto auto auto; */
+  grid-template-columns: auto 1fr auto auto;
+  /* New order: timestamp → description → water → remove */
   align-items: center;
   gap: 12px;
   background-color: var(--background-secondary);
@@ -180,10 +180,49 @@ textarea:focus {
   box-shadow: var(--card-shadow);
 }
 
-/* Water amount (Column 1) */
-.recipe-step input[type="number"]:not(.time-input) {
-  width: 80px;
+/* Time container (Column 1) - Timestamp */
+.recipe-step .time-container {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 90px;
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Time inputs styling - iOS style timestamp picker */
+.recipe-step .time-input {
+  width: 35px;
+  padding: 8px 4px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.recipe-step .time-separator {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  padding: 0 2px;
+}
+
+/* Timestamp editable spans */
+.recipe-step .editable.timestamp-minutes,
+.recipe-step .editable.timestamp-seconds {
+  font-variant-numeric: tabular-nums;
+  font-size: 16px;
+  font-weight: 500;
+  min-width: 35px;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Edit icon for timestamp minutes */
+.recipe-step .editable.timestamp-minutes i {
+  font-size: 14px;
+  opacity: 0.6;
 }
 
 /* Description (Column 2) */
@@ -192,20 +231,10 @@ textarea:focus {
   min-width: 0;
 }
 
-/* Time container (Column 3) */
-.recipe-step .time-container {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  width: 100px;
+/* Water amount (Column 3) */
+.recipe-step input[type="number"]:not(.time-input) {
+  width: 80px;
   flex-shrink: 0;
-}
-
-/* Time inputs styling */
-.recipe-step .time-input {
-  width: 40px;
-  padding: 8px;
-  text-align: center;
 }
 
 /* Remove button */
@@ -352,6 +381,31 @@ label {
 
 .timer-display {
   text-align: center;
+  width: 100%;
+}
+
+.timer-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.timer-stat {
+  font-size: 24px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.timer-stat:first-child {
+  text-align: left;
+}
+
+.timer-stat:last-child {
+  text-align: right;
 }
 
 .current-timer {
@@ -359,13 +413,23 @@ label {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
-  margin-bottom: 8px;
+  margin: 0;
+  flex: 1;
+}
+
+.accumulated-grams {
+  font-size: 32px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  margin: 12px 0;
 }
 
 .step-indicator {
   font-size: 14px;
   color: var(--text-secondary);
   margin-bottom: 8px;
+  margin-top: 8px;
 }
 
 .timer-buttons {
@@ -473,6 +537,14 @@ label {
 
   .current-timer {
     font-size: 28px;
+  }
+  
+  .timer-stat {
+    font-size: 18px;
+  }
+  
+  .accumulated-grams {
+    font-size: 24px;
   }
 
   .timer-buttons {

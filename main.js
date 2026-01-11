@@ -3,10 +3,12 @@
 let lastUpdated = []; // Track the order of user updates (not including default values)
 const timerState = {
     isRunning: false,
-    currentTime: 0,
+    currentTime: 0, // Elapsed time in seconds (counts up from 0:00)
     currentStep: 0,
-    steps: [], // Will contain {duration: number, description: string}
+    steps: [], // Will contain {duration: number, description: string, water?: string}
     intervalId: null,
+    accumulatedGramsIntervalId: null,
+    accumulatedGrams: 0, // Accumulated grams (integer only)
 };
 // Get DOM elements with type assertions
 // Using non-null assertion (!) since these elements are required in the HTML
@@ -21,6 +23,9 @@ const resetTimerBtn = document.getElementById("reset-timer");
 const currentTimerDisplay = document.getElementById("current-timer");
 const stepIndicator = document.getElementById("step-indicator");
 const stepDetails = document.getElementById("step-details");
+const totalTimeDisplay = document.getElementById("total-time");
+const totalGramsDisplay = document.getElementById("total-grams");
+const accumulatedGramsDisplay = document.getElementById("accumulated-grams");
 // Reset all inputs and reload the page
 function resetAllInputs() {
     console.log("Reset button clicked");
@@ -170,6 +175,266 @@ function formatTime(seconds) {
         .toString()
         .padStart(2, "0")}`;
 }
+// Calculate total recipe time (sum of all durations)
+function calculateTotalTime() {
+    if (timerState.steps.length === 0)
+        return 0;
+    // Total time is the sum of all step durations
+    return timerState.steps.reduce((sum, step) => sum + step.duration, 0);
+}
+// Start/update the accumulated grams interval based on current step
+function startAccumulatedGramsInterval() {
+    // Clear any existing accumulated grams interval
+    if (timerState.accumulatedGramsIntervalId !== null) {
+        clearInterval(timerState.accumulatedGramsIntervalId);
+        timerState.accumulatedGramsIntervalId = null;
+    }
+    // If timer is not running, don't start the interval
+    if (!timerState.isRunning) {
+        return;
+    }
+    // Find the current step we're in based on elapsed time
+    if (timerState.steps.length === 0) {
+        return;
+    }
+    let currentStepIndex = -1;
+    // Durations represent how long each step lasts
+    // Step 1: 0 to duration[0]
+    // Step 2: duration[0] to duration[0] + duration[1]
+    // Step 3: duration[0] + duration[1] to duration[0] + duration[1] + duration[2]
+    // etc.
+    // Calculate cumulative durations to find which step we're in
+    let cumulativeTime = 0;
+    for (let i = 0; i < timerState.steps.length; i++) {
+        const stepDuration = timerState.steps[i].duration;
+        cumulativeTime += stepDuration;
+        if (timerState.currentTime < cumulativeTime) {
+            // We're in this step
+            currentStepIndex = i;
+            break;
+        }
+    }
+    // If we've passed all steps, don't start interval
+    if (currentStepIndex === -1 || currentStepIndex >= timerState.steps.length) {
+        return;
+    }
+    const currentStep = timerState.steps[currentStepIndex];
+    // Calculate step start time (sum of previous steps' durations)
+    let stepStartTime = 0;
+    for (let i = 0; i < currentStepIndex; i++) {
+        stepStartTime += timerState.steps[i].duration;
+    }
+    // Step duration is the current step's duration
+    const stepDuration = currentStep.duration;
+    const stepEndTime = stepStartTime + stepDuration;
+    // Previous step for water calculation
+    const previousStep = currentStepIndex > 0 ? timerState.steps[currentStepIndex - 1] : null;
+    // Get step water amounts (water per step, not cumulative)
+    const currentStepWater = currentStep.water ? parseInt(currentStep.water, 10) : 0;
+    // Calculate accumulated grams from previous completed steps (sum of previous steps' water)
+    let accumulatedFromPreviousSteps = 0;
+    for (let i = 0; i < currentStepIndex; i++) {
+        const stepWater = timerState.steps[i].water ? parseInt(timerState.steps[i].water, 10) : 0;
+        accumulatedFromPreviousSteps += stepWater;
+    }
+    // Water increment for this step (just the current step's water)
+    const stepWaterIncrement = currentStepWater;
+    // If we're at the start of this step, set accumulated grams to previous steps' total
+    // If we're in the middle of the step, calculate what we should have accumulated so far
+    if (timerState.currentTime <= stepStartTime) {
+        // At or before step start, set to previous steps' total
+        timerState.accumulatedGrams = accumulatedFromPreviousSteps;
+    }
+    else if (timerState.currentTime > stepStartTime && timerState.currentTime < stepEndTime) {
+        // We're in the middle of the step, calculate proportional amount (integer)
+        const elapsedInStep = timerState.currentTime - stepStartTime;
+        if (stepDuration > 0) {
+            const proportion = Math.min(Math.max(elapsedInStep / stepDuration, 0), 1);
+            const currentStepGrams = Math.floor(proportion * stepWaterIncrement); // Integer grams from current step
+            timerState.accumulatedGrams = accumulatedFromPreviousSteps + currentStepGrams;
+        }
+        else {
+            // Step has zero duration, add full increment
+            timerState.accumulatedGrams = accumulatedFromPreviousSteps + stepWaterIncrement;
+        }
+    }
+    else if (timerState.currentTime >= stepEndTime) {
+        // Step is complete, add full water from this step
+        timerState.accumulatedGrams = accumulatedFromPreviousSteps + currentStepWater;
+    }
+    accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
+    // If no water increment or zero duration, don't start interval
+    if (stepWaterIncrement <= 0 || stepDuration <= 0) {
+        return;
+    }
+    // Calculate grams per second rate (based on incremental amount)
+    const gramsPerSecond = stepWaterIncrement / stepDuration;
+    // Calculate interval to increment by 1g (in milliseconds)
+    // interval = 1g / rate * 1000ms = 1000ms / rate
+    const incrementInterval = 1000 / gramsPerSecond; // milliseconds
+    // Calculate target accumulated grams for this step (previous total + current step's water)
+    const targetAccumulatedGrams = accumulatedFromPreviousSteps + currentStepWater;
+    console.log("Starting accumulated grams interval:", {
+        currentStepIndex,
+        stepStartTime,
+        stepEndTime,
+        stepDuration,
+        stepWaterIncrement,
+        currentStepWater,
+        accumulatedFromPreviousSteps,
+        currentAccumulated: timerState.accumulatedGrams,
+        targetAccumulatedGrams,
+        gramsPerSecond,
+        incrementInterval,
+        currentTime: timerState.currentTime
+    });
+    timerState.accumulatedGramsIntervalId = setInterval(() => {
+        // Check if timer is still running
+        if (!timerState.isRunning) {
+            // Timer paused, stop this interval
+            if (timerState.accumulatedGramsIntervalId !== null) {
+                clearInterval(timerState.accumulatedGramsIntervalId);
+                timerState.accumulatedGramsIntervalId = null;
+            }
+            return;
+        }
+        // Check if we've reached the target - PRIMARY CHECK
+        if (timerState.accumulatedGrams >= targetAccumulatedGrams) {
+            // Step complete, stop this interval
+            if (timerState.accumulatedGramsIntervalId !== null) {
+                clearInterval(timerState.accumulatedGramsIntervalId);
+                timerState.accumulatedGramsIntervalId = null;
+            }
+            // Ensure we're at exactly the target
+            timerState.accumulatedGrams = targetAccumulatedGrams;
+            accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
+            // Start interval for next step if timer is still running
+            if (timerState.isRunning) {
+                startAccumulatedGramsInterval();
+            }
+            return;
+        }
+        // Increment accumulated grams FIRST (this should happen every interval tick)
+        timerState.accumulatedGrams++;
+        accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
+        console.log("Accumulated grams incremented:", {
+            currentAccumulated: timerState.accumulatedGrams,
+            target: targetAccumulatedGrams,
+            currentTime: timerState.currentTime,
+            elapsedInStep: timerState.currentTime - stepStartTime,
+            stepDuration
+        });
+        // SAFETY CHECK: After incrementing, check if we've moved past this step
+        // This only stops if we've definitely moved to the next step
+        const elapsedInStep = timerState.currentTime - stepStartTime;
+        if (elapsedInStep >= stepDuration) {
+            // We've moved past this step, stop and start next
+            if (timerState.accumulatedGramsIntervalId !== null) {
+                clearInterval(timerState.accumulatedGramsIntervalId);
+                timerState.accumulatedGramsIntervalId = null;
+            }
+            // Cap at target (step is complete)
+            if (timerState.accumulatedGrams < targetAccumulatedGrams) {
+                timerState.accumulatedGrams = targetAccumulatedGrams;
+                accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
+            }
+            // Start interval for next step if timer is still running
+            if (timerState.isRunning) {
+                startAccumulatedGramsInterval();
+            }
+            return;
+        }
+        // Continue incrementing on next interval tick
+    }, incrementInterval);
+}
+// Calculate accumulated grams from completed steps only (for initialization)
+// Timestamps represent when steps END
+// Water amounts are CUMULATIVE TOTALS
+function calculateAccumulatedGramsFromCompletedSteps(currentTime) {
+    if (timerState.steps.length === 0)
+        return 0;
+    // If we're before the first step starts (0:00), return 0
+    if (currentTime < 0)
+        return 0;
+    // Find which step we're currently in based on cumulative durations
+    let cumulativeTime = 0;
+    let currentStepIndex = -1;
+    for (let i = 0; i < timerState.steps.length; i++) {
+        const stepStartTime = cumulativeTime;
+        cumulativeTime += timerState.steps[i].duration;
+        const stepEndTime = cumulativeTime;
+        if (currentTime >= stepStartTime && currentTime < stepEndTime) {
+            // We're in this step
+            currentStepIndex = i;
+            const step = timerState.steps[i];
+            const stepWater = step.water ? parseInt(step.water, 10) : 0;
+            const stepDuration = step.duration;
+            const elapsedInStep = currentTime - stepStartTime;
+            if (stepDuration > 0) {
+                const proportion = Math.min(Math.max(elapsedInStep / stepDuration, 0), 1);
+                // Calculate accumulated grams from previous steps
+                let accumulatedFromPrevious = 0;
+                for (let j = 0; j < i; j++) {
+                    const prevStepWater = timerState.steps[j].water ? parseInt(timerState.steps[j].water, 10) : 0;
+                    accumulatedFromPrevious += prevStepWater;
+                }
+                // Add proportional amount from current step
+                return accumulatedFromPrevious + Math.floor(proportion * stepWater);
+            }
+            break;
+        }
+    }
+    // If we're past all steps, return total water from all steps
+    if (currentTime >= cumulativeTime) {
+        let totalWater = 0;
+        for (const step of timerState.steps) {
+            const stepWater = step.water ? parseInt(step.water, 10) : 0;
+            totalWater += stepWater;
+        }
+        return totalWater;
+    }
+    return 0;
+}
+// Helper function to calculate cumulative time up to (but not including) a step index
+function getCumulativeTimeUpToStep(stepIndex) {
+    let cumulativeTime = 0;
+    for (let i = 0; i < stepIndex; i++) {
+        cumulativeTime += timerState.steps[i].duration;
+    }
+    return cumulativeTime;
+}
+// Update timer stats displays
+function updateTimerStats() {
+    // Calculate total time (sum of all durations) and total grams (sum of all water)
+    if (timerState.steps.length === 0) {
+        totalTimeDisplay.textContent = "Total: 00:00";
+        totalGramsDisplay.textContent = "Total: 0g";
+    }
+    else {
+        // Total time is sum of all step durations
+        const totalTime = timerState.steps.reduce((sum, step) => sum + step.duration, 0);
+        const formattedTime = formatTime(totalTime);
+        totalTimeDisplay.textContent = `Total: ${formattedTime}`;
+        // Total grams is sum of all step water amounts
+        const totalGrams = timerState.steps.reduce((sum, step) => {
+            const stepWater = step.water ? parseInt(step.water, 10) : 0;
+            return sum + stepWater;
+        }, 0);
+        totalGramsDisplay.textContent = `Total: ${totalGrams}g`;
+        // Debug: Log for single step verification
+        if (timerState.steps.length === 1) {
+            console.log("Single step recipe:", {
+                duration: timerState.steps[0].duration,
+                formattedTime,
+                water: timerState.steps[0].water,
+                totalGrams,
+                currentAccumulated: timerState.accumulatedGrams
+            });
+        }
+    }
+    // Display accumulated grams (always integer)
+    accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
+}
 function updateStepIndicator() {
     const timerControls = document.querySelector(".timer-controls");
     if (!timerControls)
@@ -179,6 +444,9 @@ function updateStepIndicator() {
         if (stepDetails)
             stepDetails.textContent = "";
         timerControls.style.display = "none"; // Hide timer controls
+        totalTimeDisplay.textContent = "Total: 00:00";
+        totalGramsDisplay.textContent = "Total: 0g";
+        accumulatedGramsDisplay.textContent = "0g";
         return;
     }
     const currentStep = timerState.steps[timerState.currentStep];
@@ -189,8 +457,11 @@ function updateStepIndicator() {
         stepIndicator.textContent = `Step ${timerState.currentStep + 1} of ${timerState.steps.length}`;
     }
     if (stepDetails && currentStep && currentStep.water) {
-        stepDetails.textContent = `Step ${timerState.currentStep + 1} - Add ${currentStep.water}g of water to ${currentStep.description} for ${formatTime(currentStep.duration)}`;
+        const stepStartTime = getCumulativeTimeUpToStep(timerState.currentStep);
+        stepDetails.textContent = `Step ${timerState.currentStep + 1} - Add ${currentStep.water}g of water to ${currentStep.description} at ${formatTime(stepStartTime)}`;
     }
+    // Update timer stats
+    updateTimerStats();
     timerControls.style.display = "flex"; // Show timer controls
 }
 function startTimer() {
@@ -199,33 +470,59 @@ function startTimer() {
         clearInterval(timerState.intervalId);
         timerState.intervalId = null;
     }
-    const currentStep = timerState.steps[timerState.currentStep];
-    if (!timerState.currentTime && currentStep) {
-        timerState.currentTime = currentStep.duration;
-    }
+    // Set timer as running FIRST so that startAccumulatedGramsInterval() doesn't return early
+    timerState.isRunning = true;
+    // Initialize accumulated grams from completed steps
+    timerState.accumulatedGrams = calculateAccumulatedGramsFromCompletedSteps(timerState.currentTime);
+    accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
+    // Start the accumulated grams interval (now that isRunning is true)
+    startAccumulatedGramsInterval();
+    // Timer starts from currentTime and counts up
     timerState.intervalId = setInterval(() => {
-        if (timerState.currentTime > 0) {
-            timerState.currentTime--;
-            currentTimerDisplay.textContent = formatTime(timerState.currentTime);
-            console.log("Timer tick:", timerState.currentTime);
-        }
-        else {
-            console.log("Step completed");
-            if (timerState.currentStep < timerState.steps.length - 1) {
-                nextStep();
-            }
-            else {
-                console.log("All steps completed");
-                if (timerState.intervalId !== null) {
-                    clearInterval(timerState.intervalId);
-                }
-                timerState.isRunning = false;
+        // Get total time (sum of all durations)
+        const totalTime = timerState.steps.length > 0
+            ? timerState.steps.reduce((sum, step) => sum + step.duration, 0)
+            : 0;
+        // Check if we've reached or exceeded the total time
+        if (timerState.currentTime >= totalTime) {
+            // Stop the timer and pause
+            if (timerState.intervalId !== null) {
+                clearInterval(timerState.intervalId);
                 timerState.intervalId = null;
-                playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
             }
+            if (timerState.accumulatedGramsIntervalId !== null) {
+                clearInterval(timerState.accumulatedGramsIntervalId);
+                timerState.accumulatedGramsIntervalId = null;
+            }
+            timerState.isRunning = false;
+            timerState.currentTime = totalTime; // Set to exact total time
+            currentTimerDisplay.textContent = formatTime(totalTime);
+            playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
+            // Update accumulated grams to final total (sum of all step water amounts)
+            if (timerState.steps.length > 0) {
+                const totalGrams = timerState.steps.reduce((sum, step) => {
+                    const stepWater = step.water ? parseInt(step.water, 10) : 0;
+                    return sum + stepWater;
+                }, 0);
+                timerState.accumulatedGrams = totalGrams;
+                accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
+            }
+            updateCurrentStepFromTime();
+            updateStepIndicator();
+            return;
+        }
+        timerState.currentTime++;
+        currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+        console.log("Timer tick:", timerState.currentTime);
+        // Check if step changed
+        const previousStep = timerState.currentStep;
+        updateCurrentStepFromTime();
+        // If step changed, restart accumulated grams interval
+        if (timerState.currentStep !== previousStep) {
+            startAccumulatedGramsInterval();
         }
     }, 1000);
-    timerState.isRunning = true;
+    // timerState.isRunning is already set to true at the start of this function
     playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-pause"></i>';
 }
 function togglePlayPause() {
@@ -239,6 +536,11 @@ function togglePlayPause() {
         if (timerState.intervalId !== null) {
             clearInterval(timerState.intervalId);
             timerState.intervalId = null;
+        }
+        // Pause accumulated grams interval
+        if (timerState.accumulatedGramsIntervalId !== null) {
+            clearInterval(timerState.accumulatedGramsIntervalId);
+            timerState.accumulatedGramsIntervalId = null;
         }
         timerState.isRunning = false;
         playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
@@ -264,13 +566,23 @@ function previousStep() {
             clearInterval(timerState.intervalId);
             timerState.intervalId = null;
         }
+        // Stop accumulated grams interval
+        if (timerState.accumulatedGramsIntervalId !== null) {
+            clearInterval(timerState.accumulatedGramsIntervalId);
+            timerState.accumulatedGramsIntervalId = null;
+        }
         timerState.currentStep--;
         const step = timerState.steps[timerState.currentStep];
         if (step) {
-            timerState.currentTime = step.duration;
+            // Set current time to the start of this step (cumulative time up to this step)
+            timerState.currentTime = getCumulativeTimeUpToStep(timerState.currentStep);
             currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+            // Update accumulated grams from completed steps
+            timerState.accumulatedGrams = calculateAccumulatedGramsFromCompletedSteps(timerState.currentTime);
+            accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
             console.log("Moved to previous step:", {
                 currentStep: timerState.currentStep,
+                startTime: timerState.currentTime,
                 duration: step.duration,
                 description: step.description,
             });
@@ -298,13 +610,23 @@ function nextStep() {
             clearInterval(timerState.intervalId);
             timerState.intervalId = null;
         }
+        // Stop accumulated grams interval
+        if (timerState.accumulatedGramsIntervalId !== null) {
+            clearInterval(timerState.accumulatedGramsIntervalId);
+            timerState.accumulatedGramsIntervalId = null;
+        }
         timerState.currentStep++;
         const step = timerState.steps[timerState.currentStep];
         if (step) {
-            timerState.currentTime = step.duration;
+            // Set current time to the start of this step (cumulative time up to this step)
+            timerState.currentTime = getCumulativeTimeUpToStep(timerState.currentStep);
             currentTimerDisplay.textContent = formatTime(timerState.currentTime);
+            // Update accumulated grams from completed steps
+            timerState.accumulatedGrams = calculateAccumulatedGramsFromCompletedSteps(timerState.currentTime);
+            accumulatedGramsDisplay.textContent = `${timerState.accumulatedGrams}g`;
             console.log("Moved to next step:", {
                 currentStep: timerState.currentStep,
+                startTime: timerState.currentTime,
                 duration: step.duration,
                 description: step.description,
             });
@@ -326,21 +648,43 @@ function resetTimer() {
     console.log("Reset timer called");
     if (timerState.intervalId !== null) {
         clearInterval(timerState.intervalId);
+        timerState.intervalId = null;
+    }
+    if (timerState.accumulatedGramsIntervalId !== null) {
+        clearInterval(timerState.accumulatedGramsIntervalId);
+        timerState.accumulatedGramsIntervalId = null;
     }
     timerState.isRunning = false;
     timerState.currentStep = 0;
-    if (timerState.steps.length > 0 && timerState.steps[0]) {
-        timerState.currentTime = timerState.steps[0].duration;
-        currentTimerDisplay.textContent = formatTime(timerState.currentTime);
-    }
-    else {
-        timerState.currentTime = 0;
-        currentTimerDisplay.textContent = "00:00";
-    }
+    timerState.currentTime = 0; // Reset to 0:00
+    timerState.accumulatedGrams = 0; // Reset accumulated grams
+    currentTimerDisplay.textContent = "00:00";
+    accumulatedGramsDisplay.textContent = "0g";
     playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
     updateStepIndicator();
     updateStepButtons();
     logTimerState("Reset Timer");
+}
+// Reset timer to beginning when recipe steps are edited
+function resetTimerOnStepEdit() {
+    if (timerState.intervalId !== null) {
+        clearInterval(timerState.intervalId);
+        timerState.intervalId = null;
+    }
+    if (timerState.accumulatedGramsIntervalId !== null) {
+        clearInterval(timerState.accumulatedGramsIntervalId);
+        timerState.accumulatedGramsIntervalId = null;
+    }
+    timerState.isRunning = false;
+    timerState.currentStep = 0;
+    timerState.currentTime = 0; // Reset to 0:00
+    timerState.accumulatedGrams = 0; // Reset accumulated grams
+    currentTimerDisplay.textContent = "00:00";
+    accumulatedGramsDisplay.textContent = "0g";
+    playPauseBtn.innerHTML = '<i class="fa-solid fa-circle-play"></i>';
+    updateCurrentStepFromTime();
+    updateStepIndicator();
+    updateStepButtons();
 }
 function parseStepDuration(minutesInput, secondsInput) {
     const minutes = parseInt(minutesInput.value || "0", 10);
@@ -356,7 +700,110 @@ function addRecipeStep(initialValues = null) {
         return;
     const stepElement = document.createElement("div");
     stepElement.className = "recipe-step";
-    // Water amount input
+    // Time container (duration picker) - NEW ORDER: First
+    const timeContainer = document.createElement("div");
+    timeContainer.className = "time-container";
+    // Minutes input for duration
+    const minutesSpan = document.createElement("span");
+    minutesSpan.className = "editable duration-minutes";
+    minutesSpan.setAttribute("data-placeholder", "0");
+    const minutesInput = document.createElement("input");
+    minutesInput.type = "number";
+    minutesInput.className = "time-input duration-minutes";
+    minutesInput.min = "0";
+    minutesInput.max = "59";
+    minutesInput.step = "1";
+    minutesInput.inputMode = "numeric";
+    minutesInput.pattern = "[0-9]*";
+    minutesInput.placeholder = "0";
+    minutesInput.style.display = "none";
+    if (initialValues) {
+        minutesInput.value = initialValues.durationMinutes;
+        const mins = parseInt(initialValues.durationMinutes || "0", 10);
+        const secs = parseInt(initialValues.durationSeconds || "0", 10);
+        const isEmpty = mins === 0 && secs === 0;
+        const displayValue = initialValues.durationMinutes.padStart(2, "0");
+        minutesSpan.innerHTML = isEmpty ? '<i class="fa-regular fa-pen-to-square"></i> ' + displayValue : displayValue;
+    }
+    else {
+        minutesSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> 00';
+    }
+    // Time separator
+    const timeSeparator = document.createElement("span");
+    timeSeparator.textContent = ":";
+    timeSeparator.className = "time-separator";
+    // Seconds input for duration
+    const secondsSpan = document.createElement("span");
+    secondsSpan.className = "editable duration-seconds";
+    secondsSpan.setAttribute("data-placeholder", "0");
+    const secondsInput = document.createElement("input");
+    secondsInput.type = "number";
+    secondsInput.className = "time-input duration-seconds";
+    secondsInput.min = "0";
+    secondsInput.max = "59";
+    secondsInput.step = "1";
+    secondsInput.inputMode = "numeric";
+    secondsInput.pattern = "[0-9]*";
+    secondsInput.placeholder = "0";
+    secondsInput.style.display = "none";
+    if (initialValues) {
+        secondsInput.value = initialValues.durationSeconds;
+        const displayValue = initialValues.durationSeconds.padStart(2, "0");
+        secondsSpan.innerHTML = displayValue;
+    }
+    else {
+        secondsSpan.innerHTML = "00";
+    }
+    // Update duration display helper - only show icon if empty (0:00)
+    const updateDurationDisplay = () => {
+        const mins = minutesInput.value || "0";
+        const secs = secondsInput.value || "0";
+        const totalSeconds = parseInt(mins, 10) * 60 + parseInt(secs, 10);
+        const isEmpty = totalSeconds === 0;
+        if (isEmpty) {
+            minutesSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> 00';
+        }
+        else {
+            minutesSpan.innerHTML = mins.padStart(2, "0");
+        }
+        secondsSpan.innerHTML = secs.padStart(2, "0");
+    };
+    // Add click listeners for duration spans to make them editable
+    minutesSpan.addEventListener("click", () => {
+        minutesSpan.style.display = "none";
+        minutesInput.style.display = "inline";
+        minutesInput.focus();
+        minutesInput.select();
+    });
+    secondsSpan.addEventListener("click", () => {
+        secondsSpan.style.display = "none";
+        secondsInput.style.display = "inline";
+        secondsInput.focus();
+        secondsInput.select();
+    });
+    // Step description input - NEW ORDER: Second
+    const descriptionSpan = document.createElement("span");
+    descriptionSpan.className = "editable";
+    descriptionSpan.setAttribute("data-placeholder", "Step description");
+    const descriptionInput = document.createElement("input");
+    descriptionInput.type = "text";
+    descriptionInput.placeholder = "Step description";
+    descriptionInput.style.display = "none";
+    // Helper function to format description display - only show icon if empty
+    const formatDescriptionDisplay = (value) => {
+        if (!value || value === "") {
+            return '<i class="fa-regular fa-pen-to-square"></i> ' + descriptionSpan.getAttribute("data-placeholder");
+        }
+        return value;
+    };
+    if (initialValues) {
+        descriptionInput.value = initialValues.description;
+        descriptionSpan.innerHTML = formatDescriptionDisplay(initialValues.description);
+    }
+    else {
+        descriptionSpan.innerHTML = formatDescriptionDisplay("");
+    }
+    // Water amount input - NEW ORDER: Third
     const waterSpan = document.createElement("span");
     waterSpan.className = "editable";
     waterSpan.setAttribute("data-placeholder", "Water (g)");
@@ -368,102 +815,128 @@ function addRecipeStep(initialValues = null) {
     stepWaterInput.pattern = "[0-9]*";
     stepWaterInput.placeholder = "Water (g)";
     stepWaterInput.style.display = "none";
+    // Helper function to format water display with "g" suffix - only show icon if empty
+    const formatWaterDisplay = (value) => {
+        if (!value || value === "") {
+            return '<i class="fa-regular fa-pen-to-square"></i> ' + waterSpan.getAttribute("data-placeholder");
+        }
+        return value + 'g';
+    };
     if (initialValues) {
-        stepWaterInput.value = initialValues.water;
-        waterSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + initialValues.water;
+        // Strip "g" suffix if present in initialValues
+        const waterValue = initialValues.water.replace(/g$/, "");
+        stepWaterInput.value = waterValue;
+        waterSpan.innerHTML = formatWaterDisplay(waterValue);
     }
     else {
-        waterSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + waterSpan.getAttribute("data-placeholder");
+        waterSpan.innerHTML = formatWaterDisplay("");
     }
-    // Step description input
-    const descriptionSpan = document.createElement("span");
-    descriptionSpan.className = "editable";
-    descriptionSpan.setAttribute("data-placeholder", "Step description");
-    const descriptionInput = document.createElement("input");
-    descriptionInput.type = "text";
-    descriptionInput.placeholder = "Step description";
-    descriptionInput.style.display = "none";
-    if (initialValues) {
-        descriptionInput.value = initialValues.description;
-        descriptionSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + initialValues.description;
-    }
-    else {
-        descriptionSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + descriptionSpan.getAttribute("data-placeholder");
-    }
-    // Time container
-    const timeContainer = document.createElement("div");
-    timeContainer.className = "time-container";
-    // Minutes input
-    const minutesSpan = document.createElement("span");
-    minutesSpan.className = "editable";
-    minutesSpan.setAttribute("data-placeholder", "MM");
-    const minutesInput = document.createElement("input");
-    minutesInput.type = "number";
-    minutesInput.className = "time-input minutes";
-    minutesInput.min = "0";
-    minutesInput.max = "59";
-    minutesInput.step = "1";
-    minutesInput.inputMode = "numeric";
-    minutesInput.pattern = "[0-9]*";
-    minutesInput.placeholder = "MM";
-    minutesInput.style.display = "none";
-    if (initialValues) {
-        minutesInput.value = initialValues.minutes;
-        minutesSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + initialValues.minutes;
-    }
-    else {
-        minutesSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + minutesSpan.getAttribute("data-placeholder");
-    }
-    // Time separator
-    const timeSeparator = document.createElement("span");
-    timeSeparator.textContent = ":";
-    timeSeparator.className = "time-separator";
-    // Seconds input
-    const secondsSpan = document.createElement("span");
-    secondsSpan.className = "editable";
-    secondsSpan.setAttribute("data-placeholder", "SS");
-    const secondsInput = document.createElement("input");
-    secondsInput.type = "number";
-    secondsInput.className = "time-input seconds";
-    secondsInput.min = "0";
-    secondsInput.max = "59";
-    secondsInput.step = "1";
-    secondsInput.inputMode = "numeric";
-    secondsInput.pattern = "[0-9]*";
-    secondsInput.placeholder = "SS";
-    secondsInput.style.display = "none";
-    if (initialValues) {
-        secondsInput.value = initialValues.seconds;
-        secondsSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + initialValues.seconds;
-    }
-    else {
-        secondsSpan.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + secondsSpan.getAttribute("data-placeholder");
-    }
-    // Add time change listeners
+    // Add duration change listeners
     const updateTimerState = () => {
         const duration = parseStepDuration(minutesInput, secondsInput);
+        // Find the step by its index in the DOM (steps are in order)
         const stepIndex = Array.from(stepsContainer.children).indexOf(stepElement);
-        if (stepIndex !== -1 && stepIndex < timerState.steps.length) {
-            timerState.steps[stepIndex].duration = duration;
-            if (stepIndex === timerState.currentStep && !timerState.isRunning) {
-                timerState.currentTime = duration;
-                currentTimerDisplay.textContent = formatTime(duration);
-            }
+        if (stepIndex >= 0 && stepIndex < timerState.steps.length) {
+            const stepToUpdate = timerState.steps[stepIndex];
+            // Update the duration (no validation/clamping)
+            stepToUpdate.duration = duration;
+            // Reset timer to beginning when recipe steps are edited
+            resetTimerOnStepEdit();
             console.log("Updated step duration:", { stepIndex, duration });
-            updateUrlInBrowser();
         }
+        updateDurationDisplay();
+        // Always update URL after duration edit (even if step not found, the display changed)
+        updateUrlInBrowser();
     };
-    minutesInput.addEventListener("change", updateTimerState);
-    secondsInput.addEventListener("change", updateTimerState);
-    descriptionInput.addEventListener("change", () => {
-        const stepIndex = Array.from(stepsContainer.children).indexOf(stepElement);
-        if (stepIndex !== -1 && stepIndex < timerState.steps.length) {
-            timerState.steps[stepIndex].description = descriptionInput.value;
-            updateUrlInBrowser();
+    minutesInput.addEventListener("blur", () => {
+        updateTimerState();
+        updateDurationDisplay();
+        minutesInput.style.display = "none";
+        minutesSpan.style.display = "inline";
+    });
+    minutesInput.addEventListener("change", () => {
+        updateTimerState();
+        updateDurationDisplay();
+    });
+    secondsInput.addEventListener("blur", () => {
+        updateTimerState();
+        updateDurationDisplay();
+        secondsInput.style.display = "none";
+        secondsSpan.style.display = "inline";
+    });
+    secondsInput.addEventListener("change", () => {
+        updateTimerState();
+        updateDurationDisplay();
+    });
+    descriptionInput.addEventListener("blur", () => {
+        // Find the step in timerState.steps by matching description and water
+        const stepDesc = descriptionInput.value;
+        const stepWater = stepWaterInput.value || undefined;
+        const stepInState = timerState.steps.find(step => step.description === stepDesc && step.water === stepWater);
+        if (stepInState) {
+            stepInState.description = descriptionInput.value;
+            // Reset timer to beginning when recipe steps are edited
+            resetTimerOnStepEdit();
         }
+        descriptionSpan.innerHTML = formatDescriptionDisplay(descriptionInput.value);
+        descriptionInput.style.display = "none";
+        descriptionSpan.style.display = "inline";
+        updateUrlInBrowser();
+    });
+    descriptionInput.addEventListener("change", () => {
+        // Find the step in timerState.steps by matching description and water
+        const stepDesc = descriptionInput.value;
+        const stepWater = stepWaterInput.value || undefined;
+        const stepInState = timerState.steps.find(step => step.description === stepDesc && step.water === stepWater);
+        if (stepInState) {
+            stepInState.description = descriptionInput.value;
+            // Reset timer to beginning when recipe steps are edited
+            resetTimerOnStepEdit();
+        }
+        updateUrlInBrowser();
+    });
+    // Add click listener for description span
+    descriptionSpan.addEventListener("click", () => {
+        descriptionSpan.style.display = "none";
+        descriptionInput.style.display = "inline";
+        descriptionInput.focus();
+        descriptionInput.select();
+    });
+    stepWaterInput.addEventListener("blur", () => {
+        // Find the step in timerState.steps by matching description and water
+        const stepDesc = descriptionInput.value;
+        const stepWater = stepWaterInput.value || undefined;
+        const stepInState = timerState.steps.find(step => step.description === stepDesc && step.water === stepWater);
+        if (stepInState) {
+            stepInState.water = stepWaterInput.value || undefined;
+            // Reset timer to beginning when recipe steps are edited
+            resetTimerOnStepEdit();
+        }
+        waterSpan.innerHTML = formatWaterDisplay(stepWaterInput.value);
+        stepWaterInput.style.display = "none";
+        waterSpan.style.display = "inline";
+        updateUrlInBrowser();
+    });
+    stepWaterInput.addEventListener("change", () => {
+        // Find the step in timerState.steps by matching description and water
+        const stepDesc = descriptionInput.value;
+        const stepWater = stepWaterInput.value || undefined;
+        const stepInState = timerState.steps.find(step => step.description === stepDesc && step.water === stepWater);
+        if (stepInState) {
+            stepInState.water = stepWaterInput.value || undefined;
+            // Reset timer to beginning when recipe steps are edited
+            resetTimerOnStepEdit();
+        }
+        updateUrlInBrowser();
+    });
+    // Add click listener for water span
+    waterSpan.addEventListener("click", () => {
+        waterSpan.style.display = "none";
+        stepWaterInput.style.display = "inline";
+        stepWaterInput.focus();
+        stepWaterInput.select();
     });
     // Helper function to handle TAB navigation within recipe steps
-    // Handles both Enter (to blur) and Tab (to navigate)
     const setupStepTabNavigation = (input, nextInputInStep) => {
         input.addEventListener("keydown", (event) => {
             const keyboardEvent = event;
@@ -472,7 +945,6 @@ function addRecipeStep(initialValues = null) {
             }
             else if (keyboardEvent.key === "Tab" && !keyboardEvent.shiftKey) {
                 if (nextInputInStep) {
-                    // Move to next input in this step
                     event.preventDefault();
                     const nextSpan = nextInputInStep.previousElementSibling;
                     if (nextSpan && nextSpan.classList.contains("editable")) {
@@ -485,18 +957,17 @@ function addRecipeStep(initialValues = null) {
                     // Last input in step - check for next step
                     const nextStep = stepElement.nextElementSibling;
                     if (nextStep) {
-                        const nextStepWater = nextStep.querySelector('input[type="number"]:not(.time-input)');
-                        if (nextStepWater) {
+                        const nextStepTime = nextStep.querySelector('.duration-minutes');
+                        if (nextStepTime) {
                             event.preventDefault();
-                            const nextStepWaterSpan = nextStepWater.previousElementSibling;
-                            if (nextStepWaterSpan && nextStepWaterSpan.classList.contains("editable")) {
-                                nextStepWaterSpan.style.display = "none";
-                                nextStepWater.style.display = "inline";
+                            const nextStepTimeSpan = nextStepTime.previousElementSibling;
+                            if (nextStepTimeSpan && nextStepTimeSpan.classList.contains("editable")) {
+                                nextStepTimeSpan.style.display = "none";
+                                nextStepTime.style.display = "inline";
                             }
-                            nextStepWater.focus();
+                            nextStepTime.focus();
                         }
                     }
-                    // Otherwise let default tab behavior continue
                 }
             }
         });
@@ -511,71 +982,139 @@ function addRecipeStep(initialValues = null) {
     const removeButton = document.createElement("button");
     removeButton.className = "remove-step";
     removeButton.innerHTML = '<i class="fa-solid fa-times"></i>';
-    removeButton.tabIndex = -1; // Remove from tab order - use mouse/click to remove
+    removeButton.tabIndex = -1;
     removeButton.addEventListener("click", () => {
         const stepIndex = Array.from(stepsContainer.children).indexOf(stepElement);
         timerState.steps.splice(stepIndex, 1);
         stepElement.remove();
-        if (timerState.currentStep >= stepIndex) {
-            timerState.currentStep = Math.max(0, timerState.currentStep - 1);
-        }
         if (timerState.steps.length === 0) {
             timerState.currentTime = 0;
+            timerState.currentStep = 0;
             currentTimerDisplay.textContent = "00:00";
+            const timerControls = document.querySelector(".timer-controls");
+            if (timerControls)
+                timerControls.style.display = "none";
         }
-        else if (!timerState.isRunning) {
-            const step = timerState.steps[timerState.currentStep];
-            if (step) {
-                timerState.currentTime = step.duration;
-                currentTimerDisplay.textContent = formatTime(timerState.currentTime);
-            }
+        else {
+            updateCurrentStepFromTime();
         }
         updateStepIndicator();
         updateStepButtons();
         updateUrlInBrowser();
     });
-    // Assemble step
-    stepElement.appendChild(waterSpan);
-    stepElement.appendChild(stepWaterInput);
+    // Assemble step in NEW ORDER: timestamp → description → water → remove
+    stepElement.appendChild(timeContainer);
     stepElement.appendChild(descriptionSpan);
     stepElement.appendChild(descriptionInput);
-    stepElement.appendChild(timeContainer);
+    stepElement.appendChild(waterSpan);
+    stepElement.appendChild(stepWaterInput);
     stepElement.appendChild(removeButton);
     stepsContainer.appendChild(stepElement);
-    // Add to timer state
-    const duration = parseStepDuration(minutesInput, secondsInput);
+    // Add to timer state (with current duration)
+    const initialDuration = parseStepDuration(minutesInput, secondsInput);
     const description = descriptionInput.value || `Step ${timerState.steps.length + 1}`;
-    timerState.steps.push({ duration, description, water: stepWaterInput.value || undefined });
+    const water = stepWaterInput.value || undefined;
+    timerState.steps.push({ duration: initialDuration, description, water });
+    // Steps are now in order (no sorting needed)
+    // Duration is already set from input values (no validation/rules applied)
+    // Initialize timer state for first step
     if (timerState.steps.length === 1) {
-        timerState.currentTime = duration;
-        currentTimerDisplay.textContent = formatTime(duration);
+        timerState.currentTime = 0;
+        timerState.currentStep = 0;
+        timerState.accumulatedGrams = 0; // Reset accumulated grams for first step
+        currentTimerDisplay.textContent = "00:00";
+        accumulatedGramsDisplay.textContent = "0g";
         const timerControls = document.querySelector(".timer-controls");
         if (timerControls)
-            timerControls.style.display = "flex"; // Show timer controls
+            timerControls.style.display = "flex";
     }
-    updateStepIndicator();
+    // Update timer display immediately (total time, total grams, step indicator)
+    // This ensures the display shows correct values when step is added
+    // Note: updateStepIndicator() calls updateTimerStats(), but we also call it explicitly
+    // to ensure it runs before updateStepIndicator() updates the step display
+    updateTimerStats();
+    updateStepIndicator(); // This also calls updateTimerStats() internally, but that's OK
     updateStepButtons();
     logTimerState("Add Step");
-    // Attach event listeners to the new step's span and input elements
+    // Attach event listeners
     attachEditableListeners(stepElement);
-    // Set up TAB navigation AFTER attachEditableListeners
-    // The handlers will work together - attachEditableListeners handles Enter, this handles Tab
-    // Order: water -> description -> minutes -> seconds -> next step
-    setupStepTabNavigation(stepWaterInput, descriptionInput);
-    setupStepTabNavigation(descriptionInput, minutesInput);
+    // Set up TAB navigation: timestamp minutes → seconds → description → water → next step
     setupStepTabNavigation(minutesInput, secondsInput);
-    setupStepTabNavigation(secondsInput, null); // Last in step, will check for next step
+    setupStepTabNavigation(secondsInput, descriptionInput);
+    setupStepTabNavigation(descriptionInput, stepWaterInput);
+    setupStepTabNavigation(stepWaterInput, null);
+    updateDurationDisplay();
     updateUrlInBrowser();
+}
+// Steps are now in order (no reordering needed)
+// This function is no longer needed but kept for compatibility
+function reorderStepsInDOM() {
+    // Steps are maintained in order, no sorting/reordering needed
+    return;
+}
+// Helper function to find and update current step based on elapsed time
+function updateCurrentStepFromTime() {
+    if (timerState.steps.length === 0) {
+        timerState.currentStep = 0;
+        return;
+    }
+    // Durations represent how long each step lasts
+    // Step 1: 0 to duration[0]
+    // Step 2: duration[0] to duration[0] + duration[1]
+    // Step 3: duration[0] + duration[1] to duration[0] + duration[1] + duration[2]
+    // etc.
+    let newStepIndex = 0;
+    let cumulativeTime = 0;
+    // Find which step we're currently in based on cumulative durations
+    for (let i = 0; i < timerState.steps.length; i++) {
+        const stepStartTime = cumulativeTime;
+        cumulativeTime += timerState.steps[i].duration;
+        const stepEndTime = cumulativeTime;
+        if (timerState.currentTime >= stepStartTime && timerState.currentTime < stepEndTime) {
+            // We're in this step
+            newStepIndex = i;
+            break;
+        }
+        else if (timerState.currentTime >= stepEndTime && i === timerState.steps.length - 1) {
+            // We're past the last step
+            newStepIndex = i;
+            break;
+        }
+    }
+    timerState.currentStep = newStepIndex;
+    updateStepIndicator();
+    updateStepButtons();
 }
 // Attach event listeners to editable spans and inputs
 function attachEditableListeners(stepElement) {
     const editableSpans = stepElement.querySelectorAll(".editable");
     const isRecipeStep = stepElement.classList.contains("recipe-step");
     editableSpans.forEach((span) => {
+        // Skip duration fields, description, and water fields in recipe steps - they are handled separately in addRecipeStep
+        if (span.classList.contains("duration-minutes") || span.classList.contains("duration-seconds")) {
+            return;
+        }
+        // Skip description and water fields in recipe steps - they're handled separately
         const input = span.nextElementSibling;
         if (!input)
             return;
-        span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (input.value || span.getAttribute("data-placeholder"));
+        // Check if this is a description input in a recipe step
+        if (isRecipeStep && input.type === "text") {
+            return; // Skip description input - handled separately
+        }
+        // Check if this is a water input in a recipe step by checking if it's a number input that's not a time input
+        if (isRecipeStep && input.type === "number" && !input.classList.contains("time-input")) {
+            return; // Skip water input - handled separately
+        }
+        // For non-recipe-step fields, show icon only if empty
+        const value = input.value || "";
+        const placeholder = span.getAttribute("data-placeholder") || "";
+        if (!value || value === "") {
+            span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + placeholder;
+        }
+        else {
+            span.innerHTML = value;
+        }
         input.style.display = "none";
         span.addEventListener("click", () => {
             span.style.display = "none";
@@ -583,7 +1122,15 @@ function attachEditableListeners(stepElement) {
             input.focus();
         });
         input.addEventListener("blur", () => {
-            span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + (input.value || span.getAttribute("data-placeholder"));
+            // Show icon only if empty
+            const value = input.value || "";
+            const placeholder = span.getAttribute("data-placeholder") || "";
+            if (!value || value === "") {
+                span.innerHTML = '<i class="fa-regular fa-pen-to-square"></i> ' + placeholder;
+            }
+            else {
+                span.innerHTML = value;
+            }
             input.style.display = "none";
             span.style.display = "inline";
             // Update URL when recipe step fields are edited
@@ -636,10 +1183,10 @@ function buildUrlWithValues() {
             notes: document.getElementById("additional-notes")?.value || "",
         },
         steps: Array.from(document.querySelectorAll(".recipe-step")).map((step) => ({
-            water: step.querySelector('input[type="number"]')?.value || "",
+            water: step.querySelector('input[type="number"]:not(.time-input)')?.value || "",
             description: step.querySelector('input[type="text"]')?.value || "",
-            minutes: step.querySelector(".minutes")?.value || "0",
-            seconds: step.querySelector(".seconds")?.value || "0",
+            durationMinutes: step.querySelector(".duration-minutes")?.value || "0",
+            durationSeconds: step.querySelector(".duration-seconds")?.value || "0",
         })),
     };
     const jsonString = JSON.stringify(recipeData);
@@ -680,11 +1227,11 @@ function generateRecipeMarkdown() {
     markdown += `- Water Temperature: ${waterTemp}°F\n\n`;
     markdown += `## Steps\n`;
     steps.forEach((step, index) => {
-        const water = step.querySelector('input[type="number"]')?.value || "";
+        const water = step.querySelector('input[type="number"]:not(.time-input)')?.value || "";
         const description = step.querySelector('input[type="text"]')?.value || "";
-        const minutes = step.querySelector(".minutes")?.value || "0";
-        const seconds = step.querySelector(".seconds")?.value || "0";
-        markdown += `${index + 1}. Pour ${water}g - ${description} (${minutes}:${seconds.padStart(2, "0")})\n`;
+        const minutes = step.querySelector(".duration-minutes")?.value || "0";
+        const seconds = step.querySelector(".duration-seconds")?.value || "0";
+        markdown += `${minutes}:${seconds.padStart(2, "0")} - ${description}${water ? ` - ${water}g` : ""}\n`;
     });
     if (notes.trim()) {
         markdown += `\n## Additional Notes\n${notes}\n`;
